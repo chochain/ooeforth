@@ -3,14 +3,64 @@ import java.io.*;
 import java.time.LocalTime;
 
 public class Eforth112 {	// ooeforth
-	static Scanner in;
 	static Stack<Integer> stack = new Stack<>();
 	static Stack<Integer> rstack = new Stack<>();
 	static List<Code> dictionary = new ArrayList<>();
 	static boolean compiling = false;
+	static StringTokenizer tok = null;
 	static int base = 10;
 	static int fence = 0;
 	static int wp,ip;
+
+	public static boolean parser(String tib)
+	{
+		tok = new StringTokenizer(tib);
+		
+		String idiom = "";
+		while (tok.hasMoreTokens()) {
+			idiom = tok.nextToken().trim();
+			if (idiom.equals("bye")) break;
+
+			Code newWordObject = null;
+			for (var w : dictionary) {  				// search dictionary
+				if (w.name.equals(idiom)) {
+					newWordObject = w;
+					break;
+				}
+			}
+			if(newWordObject != null) {  				// word found
+				if(!compiling || newWordObject.immediate) {
+					try {newWordObject.xt(); } 			// execute
+					catch (Exception e) {System.out.print(e);}}
+				else {  								// or compile
+					Code latestWord = dictionary.get(dictionary.size()-1);
+					latestWord.addCode(newWordObject);}}
+			else { 
+				try {int n=Integer.parseInt(idiom, base); // not word, try number
+					if (compiling) {  					// compile integer literal
+						Code latestWord = dictionary.get(dictionary.size()-1);
+						latestWord.addCode(new Code("dolit",n));}
+					else { stack.push(n);}}				// or push number on stack
+				catch (NumberFormatException  ex) {		// catch number errors
+					System.out.println(idiom + " ?");
+					compiling = false; stack.clear();}
+			}
+		}
+		return !compiling && idiom.equals("bye");
+	}
+
+	public static void outer() {
+		Scanner in = new Scanner(System.in);
+		for (;;) {
+			String tib = in.nextLine();
+			if (parser(tib)) break;
+			System.out.println();
+			for(int n:stack) System.out.print(Integer.toString(n,base)+" ");
+			System.out.print("OK ");
+		}
+		in.close();
+		System.out.println("Thank you.");
+	}
 
 	public static void main(String args[]) {	// ooeforth 1.12
 		System.out.println("ooeForth1.12");
@@ -114,34 +164,9 @@ public class Eforth112 {	// ooeforth
 		Code see = new Code("see"); see.token=fence++; dictionary.add(see);
 		Code time = new Code("time"); time.token=fence++; dictionary.add(time);
 		Code ms = new Code("ms"); ms.token=fence++; dictionary.add(ms);
+		
 		// outer interpreter
-		in = new Scanner(System.in);
-		String idiom;
-		while(!(idiom=in.next()).equals("bye")) {  		// parse input
-			Code newWordObject = null;
-			for (var w : dictionary) {  				// search dictionary
-				if (w.name.equals(idiom))
-				{newWordObject = w;break;};}
-			if(newWordObject != null) {  				// word found
-				if((!compiling) || newWordObject.immediate) {
-					try {newWordObject.xt(); } 			// execute
-					catch (Exception e) {System.out.print(e);}}
-				else {  								// or compile
-					Code latestWord = dictionary.get(dictionary.size()-1);
-					latestWord.addCode(newWordObject);}}
-			else { 
-				try {int n=Integer.parseInt(idiom, base); // not word, try number
-					if (compiling) {  					// compile integer literal
-						Code latestWord = dictionary.get(dictionary.size()-1);
-						latestWord.addCode(new Code("dolit",n));}
-					else { stack.push(n);}}				// or push number on stack
-				catch (NumberFormatException  ex) {		// catch number errors
-					System.out.println(idiom + " ?");
-					compiling = false; stack.clear();}
-			}
-		}
-		System.out.println("Thank you.");
-		in.close();
+		outer();
 	}
 	// primitive words
 	static class Code {	
@@ -226,52 +251,58 @@ public class Eforth112 {	// ooeforth
 			put( "u.r", ()-> { int n=stack.pop();String s=Integer.toString(stack.pop()&0x7fffffff,base);
 			for(int i=0;i+s.length()<n;i++)System.out.print(" ");
 			System.out.print(s+" ");});
-			put( "key", ()-> { stack.push((int) in.next().charAt(0));});
+			put( "key", ()-> { stack.push((int) tok.nextToken().charAt(0));});
 			put( "emit", ()-> { System.out.print(Character.toChars( stack.pop()));});
 			put( "space", ()-> { System.out.print(" ");});
 			put( "spaces", ()-> { int n=stack.pop();for(int i=0;i<n;i++)System.out.print(" ");});
 			// literals
 			put( "[", ()-> { compiling = false;});
 			put( "]", ()-> { compiling = true; });
-			put( "'", ()-> { String s = in.next(); boolean found=false;
+			put( "'", ()-> { String s = tok.nextToken(); boolean found=false;
 				for (var w:dictionary) {
 					if (s.equals(w.name)) { stack.push(w.token); found = true;break;}}
 				if (!found) stack.push(-1);});
 			put( "dolit", ()-> {	stack.push(qf.get(0));});			// integer literal
 			put( "dostr", ()-> {	stack.push(token);});			// string literals
 			put( "$\"", ()-> {  // -- w a
-				var d = in.delimiter();
-				in.useDelimiter("\"");			// need fix
-				String s=in.next();
+				//var d = in.delimiter();
+				//in.useDelimiter("\"");			// need fix
+				String s=tok.nextToken("\"");
 				Code last = dictionary.get(dictionary.size()-1);
 				last.addCode(new Code("dostr",s));			// literal=s
-				in.useDelimiter(d);in.next();
+				//in.useDelimiter(d);
+				tok.nextToken();
 				stack.push(last.token);stack.push(last.pf.size()-1);
 				});
 			put( "dotstr", ()-> {System.out.print(literal);});
 			put( ".\"", ()-> {
-				var d = in.delimiter();
-				in.useDelimiter("\"");			// need fix
-				String s=in.next();
+				//var d = in.delimiter();
+				//in.useDelimiter("\"");			// need fix
+				String s=tok.nextToken("\"");
 				Code last = dictionary.get(dictionary.size()-1);
 				last.addCode(new Code("dotstr",s));		// literal=s
-				in.useDelimiter(d);in.next();
+				//in.useDelimiter(d);
 				});
 			put( "(", ()-> { 
-				var d = in.delimiter();
-				in.useDelimiter("\\)");
-				String s=in.next();
-				in.useDelimiter(d);in.next();
+				//var d = in.delimiter();
+				//in.useDelimiter("\\)");
+				String s= tok.nextToken("\\)");
+				//in.useDelimiter(d);
+				//tok.nextToken();
 				});
 			put( ".(", ()-> { 
-				var d = in.delimiter();
-				in.useDelimiter("\\)");System.out.print(in.next());
-				in.useDelimiter(d);in.next();
+				//var d = in.delimiter();
+				//in.useDelimiter("\\)");
+				System.out.print(tok.nextToken("\\)"));
+				//in.useDelimiter(d);
+				//tok.nextToken();
 				});
 			put( "\\", ()-> { 
-				var d = in.delimiter();
-				in.useDelimiter("\n");in.next();
-				in.useDelimiter(d);in.next();
+				//var d = in.delimiter();
+				//in.useDelimiter("\n");
+				tok.nextToken("\n");
+				//in.useDelimiter(d);
+				//tok.nextToken();
 				});
 			// structure: if else then
 			put( "branch", ()-> {
@@ -391,7 +422,7 @@ public class Eforth112 {	// ooeforth
 			put( "exit", ()-> { throw new ArithmeticException(); });								// marker to exit interpreter
 			put( "exec", ()-> { int n=stack.pop();dictionary.get(n).xt();});
 			put( ":", ()-> {          								// -- box
-				String s = in.next();
+				String s = tok.nextToken();
 				dictionary.add(new Code(s));
 				Code last = dictionary.get(dictionary.size()-1);
 				last.token=fence++;
@@ -404,7 +435,7 @@ public class Eforth112 {	// ooeforth
 			put( "docon", ()-> { stack.push(qf.get(0));});			// integer literal
 			put( "dovar", ()-> { stack.push(token);});			// string literals
 			put( "create", ()-> {
-				String s = in.next();
+				String s = tok.nextToken();
 				dictionary.add(new Code(s));
 				Code last = dictionary.get(dictionary.size()-1);
 				last.token=fence++;
@@ -413,7 +444,7 @@ public class Eforth112 {	// ooeforth
 				last.pf.get(0).qf.remove(0);
 				});
 			put( "variable", ()-> {  
-				String s = in.next();
+				String s = tok.nextToken();
 				dictionary.add(new Code(s));
 				Code last = dictionary.get(dictionary.size()-1);
 				last.token=fence++;
@@ -421,7 +452,7 @@ public class Eforth112 {	// ooeforth
 				last.pf.get(0).token=last.token;
 				});
 			put( "constant", ()-> {   // n --
-				String s = in.next();
+				String s = tok.nextToken();
 				dictionary.add(new Code(s));
 				Code last = dictionary.get(dictionary.size()-1);
 				last.token=fence++;
@@ -475,7 +506,7 @@ public class Eforth112 {	// ooeforth
 				});
 			put( "is", ()-> {   									// w -- , execute only
 				Code source = dictionary.get(stack.pop());	// source word
-				String s = in.next(); boolean found=false;
+				String s = tok.nextToken(); boolean found=false;
 				for (var w:dictionary) {
 					if (s.equals(w.name)) { 				// target word
 						Code target = dictionary.get(w.token); 
@@ -489,7 +520,7 @@ public class Eforth112 {	// ooeforth
 				System.out.print(w.name + " ");i++;
 				if (i>15) {System.out.println();i=0;}}});
 			put( ".s", ()-> { for(int n:stack) System.out.print(Integer.toString(n,base)+" ");});
-			put( "see", ()-> { String s = in.next(); boolean found=false;
+			put( "see", ()-> { String s = tok.nextToken(); boolean found=false;
 				for (var word:dictionary) {
 					if (s.equals(word.name)) { 
 						System.out.println(word.name+", "+word.token+", "+word.qf.toString());

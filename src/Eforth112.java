@@ -24,9 +24,9 @@ public class Eforth112 {	// ooeforth
 	// primitive words
 	static class Code {
 		public String 	name;
-		public int 		token     = 0;
+		public int 		idx       = 0;
 		public boolean 	immediate = false;
-		public int      struct    = 0;
+		public int      stage     = 0;
 		public String 	literal;
 
 		public List<Code>    pf   = new ArrayList<>();
@@ -50,7 +50,7 @@ public class Eforth112 {	// ooeforth
 			else { 
 				rstack.push(wp); 
 				rstack.push(ip);
-				wp=token; ip = 0;	// wp points to current colon object
+				wp=idx; ip = 0;	// wp points to current colon object
 				for (Code w:pf) {
 					try { w.xt(); ip++; } 
 					catch (ArithmeticException e) {}
@@ -144,7 +144,7 @@ public class Eforth112 {	// ooeforth
 			boolean found=false;
 			for (var w:dict) {
 				if (s.equals(w.name)) { 
-					stack.push(w.token); 
+					stack.push(w.idx); 
 					found = true;break;
 				}
 			}
@@ -152,13 +152,13 @@ public class Eforth112 {	// ooeforth
 		});
 		
 		put( "dolit", c -> stack.push(((Code)c).qf.get(0))			);	// integer literal
-		put( "dostr", c -> stack.push(((Code)c).token)				);	// string literals
+		put( "dostr", c -> stack.push(((Code)c).idx)				);	// string literals
 		put( "$\"",   c -> {  // -- w a
 			String s=tok.nextToken("\"");
 			Code last = dict.get(dict.size()-1);
 			last.addCode(new Code("dostr",s));			// literal=s
 			tok.nextToken();
-			stack.push(last.token);stack.push(last.pf.size()-1);
+			stack.push(last.idx);stack.push(last.pf.size()-1);
 		});
 		put( "dotstr",c -> System.out.print(((Code)c).literal)		);
 		put( ".\"",   c -> {
@@ -190,18 +190,18 @@ public class Eforth112 {	// ooeforth
 			Code temp = dict.get(dict.size()-1);
 			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.get(last.pf.size()-1).struct=1; 
+			last.pf.get(last.pf.size()-1).stage=1; 
 		});
 		put( "then",  c -> {
 			Code last = dict.get(dict.size()-2);
 			Code temp = dict.get(dict.size()-1);
-			if (last.pf.get(last.pf.size()-1).struct==0) {
+			if (last.pf.get(last.pf.size()-1).stage==0) {
 				last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
 				dict.remove(dict.size()-1);
 			} 
 			else {
 				last.pf.get(last.pf.size()-1).pf1.addAll(temp.pf);
-				if (last.pf.get(last.pf.size()-1).struct==1) {
+				if (last.pf.get(last.pf.size()-1).stage==1) {
 					dict.remove(dict.size()-1);
 				}
 				else temp.pf.clear();
@@ -210,10 +210,10 @@ public class Eforth112 {	// ooeforth
 		// loops
 		put( "loops", c -> {
 			Code cc = (Code)c;
-			if (cc.struct==1) {	// again
+			if (cc.stage==1) {	// again
 				while(true) { for (var w:cc.pf) w.xt(); }
 			}
-			if (cc.struct==2) {	// while repeat
+			if (cc.stage==2) {	// while repeat
 				while (true) {
 					for (var w:cc.pf) w.xt();
 					if (stack.pop()==0) break;
@@ -237,7 +237,7 @@ public class Eforth112 {	// ooeforth
 			Code temp = dict.get(dict.size()-1);
 			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.get(last.pf.size()-1).struct=2; 
+			last.pf.get(last.pf.size()-1).stage=2; 
 		});
 		put( "repeat",c -> {
 			Code last = dict.get(dict.size()-2);
@@ -249,7 +249,7 @@ public class Eforth112 {	// ooeforth
 			Code last = dict.get(dict.size()-2);
 			Code temp = dict.get(dict.size()-1);
 			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
-			last.pf.get(last.pf.size()-1).struct=1;
+			last.pf.get(last.pf.size()-1).stage=1;
 			dict.remove(dict.size()-1);
 		});
 		put( "until", c -> {
@@ -262,7 +262,7 @@ public class Eforth112 {	// ooeforth
 		put( "cycles", c -> {
 			Code cc = (Code)c;
 			int i=0;
-			if (cc.struct==0) {
+			if (cc.stage==0) {
 				while(true){
 					for (var w:cc.pf) w.xt();
 					i=rstack.pop();i--;
@@ -270,7 +270,7 @@ public class Eforth112 {	// ooeforth
 					rstack.push(i);
 				}
 			} 
-			else if (cc.struct>0) {
+			else if (cc.stage>0) {
 				for (var w:cc.pf) w.xt();
 				while(true){
 					for (var w:cc.pf2) w.xt();
@@ -292,12 +292,12 @@ public class Eforth112 {	// ooeforth
 			Code temp = dict.get(dict.size()-1);
 			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.get(last.pf.size()-1).struct=3; 
+			last.pf.get(last.pf.size()-1).stage=3; 
 		});
 		put( "next", c -> {
 			Code last = dict.get(dict.size()-2);
 			Code temp = dict.get(dict.size()-1);
-			if (last.pf.get(last.pf.size()-1).struct==0) {
+			if (last.pf.get(last.pf.size()-1).stage==0) {
 				 last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
 			}
 			else last.pf.get(last.pf.size()-1).pf2.addAll(temp.pf);
@@ -310,7 +310,7 @@ public class Eforth112 {	// ooeforth
 			String s = tok.nextToken();
 			dict.add(new Code(s));
 			Code last = dict.get(dict.size()-1);
-			last.token=fence++;
+			last.idx=fence++;
 			vm_comp = true;
 		});
 		put( ";", c -> {          								
@@ -318,31 +318,31 @@ public class Eforth112 {	// ooeforth
 			vm_comp = false;
 		});
 		put( "docon", c -> stack.push(((Code)c).qf.get(0))  );			// integer literal
-		put( "dovar", c -> stack.push(((Code)c).token)      );			// string literals
+		put( "dovar", c -> stack.push(((Code)c).idx)      	);			// string literals
 		put( "create",c -> {
 			String s = tok.nextToken();
 			dict.add(new Code(s));
 			Code last = dict.get(dict.size()-1);
-			last.token=fence++;
+			last.idx=fence++;
 			last.addCode(new Code("dovar",0));
-			last.pf.get(0).token=last.token;
+			last.pf.get(0).idx = last.idx;
 			last.pf.get(0).qf.remove(0);
 		});
 		put( "variable", c -> {  
 			String s = tok.nextToken();
 			dict.add(new Code(s));
 			Code last = dict.get(dict.size()-1);
-			last.token=fence++;
+			last.idx=fence++;
 			last.addCode(new Code("dovar",0));
-			last.pf.get(0).token=last.token;
+			last.pf.get(0).idx = last.idx;
 		});
 		put( "constant", c -> {   // n --
 			String s = tok.nextToken();
 			dict.add(new Code(s));
 			Code last = dict.get(dict.size()-1);
-			last.token=fence++;
+			last.idx = fence++;
 			last.addCode(new Code("docon",stack.pop()));
-			last.pf.get(0).token=last.token;
+			last.pf.get(0).idx = last.idx;
 		});
 		put( "@",  c -> {   // w -- n
 			Code last = dict.get(stack.pop());
@@ -395,7 +395,7 @@ public class Eforth112 {	// ooeforth
 			String s = tok.nextToken(); boolean found=false;
 			for (var w:dict) {
 				if (s.equals(w.name)) { 				// target word
-					Code target = dict.get(w.token); 
+					Code target = dict.get(w.idx); 
 					target.pf=source.pf; 				// copy pf 
 					found = true;break;
 				}
@@ -421,8 +421,8 @@ public class Eforth112 {	// ooeforth
 			boolean found=false;
 			for (var word:dict) {
 				if (s.equals(word.name)) { 
-					System.out.println(word.name+", "+word.token+", "+word.qf.toString());
-					for ( var w:word.pf) System.out.print(w.name+", "+w.token+", "+w.qf.toString()+"| ");       
+					System.out.println(word.name+", "+word.idx+", "+word.qf.toString());
+					for ( var w:word.pf) System.out.print(w.name+", "+w.idx+", "+w.qf.toString()+"| ");       
 					found = true; 
 					break;
 				}

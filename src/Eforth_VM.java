@@ -1,7 +1,7 @@
 import java.util.*;
 import java.time.LocalTime;
 
-public class Eforth_VM {
+class Eforth_VM {
 	public int      base = 10;
 	public boolean  run  = true;
 	public boolean  comp = false;
@@ -14,8 +14,8 @@ public class Eforth_VM {
 
 	StringTokenizer tok = null;
     
-	interface XT<Eforth_Code> {
-		void run(Eforth_Code c);
+	interface XT<T> {
+		void run(T c);
 	}
 	
 	Eforth_VM() { _setup_dic(); } 
@@ -23,14 +23,14 @@ public class Eforth_VM {
 	public Eforth_Code find(String str) {
 		Iterator<Eforth_Code> i = dict.iterator();
 		while (i.hasNext()) {
-			Eforth_Code w = i.next();
+			var w = i.next();
 			if (str.equals(w.name)) return w;
 		}
 		return null;
 	}
-	public void useTok(StringTokenizer tok0) { tok = tok0; }
-    public void colon_add(Eforth_Code w)     { dict.tail().pf.add(w); }		// add to new word
-    public void ss_push(Integer n)      	 { ss.push(n); }
+	public void setParser(StringTokenizer pr) { tok = pr;   }
+    public void colon_add(Eforth_Code w)      { dict.tail().add(w); }		// add to new word
+    public void ss_push(Integer n)      	  { ss.push(n); }
     public void ss_dump() {
 		if (comp) {
 			System.out.print("> ");
@@ -41,18 +41,12 @@ public class Eforth_VM {
 			System.out.print("OK ");
 		}
     }
-    public void xt(Eforth_Code w) {
-        if (_vtable.containsKey(w.name)) {	// primitives
-            _vtable.get(w.name).run(w);
-        } 
-        else run_inner(w);					// colon words
-    }
 	public void run_inner(Eforth_Code colon_w) {	// 
         rs.push(wp); 
         rs.push(ip);
-        wp = colon_w.idx;       			// wp points to current colon object
+        wp = colon_w.idx;       					// wp points to current colon object
         ip = 0;	            
-        for (Eforth_Code w:colon_w.pf) {	// inner interpreter
+        for (var w:colon_w.pf) {					// inner interpreter
             try   { 
             	xt(w); 
             	ip++; 
@@ -62,6 +56,12 @@ public class Eforth_VM {
         ip = rs.pop(); 
         wp = rs.pop();
 	}
+    public void xt(Eforth_Code w) {
+        if (_vtable.containsKey(w.name)) {			// primitives
+            _vtable.get(w.name).run(w);
+        } 
+        else run_inner(w);							// colon words
+    }
 	
 	private void _setup_dic() {
 		//
@@ -90,7 +90,7 @@ public class Eforth_VM {
         //
         // double check whether we have them all listed
         //
-        _vtable.forEach( (k, v) -> dict.add(new Eforth_Code(k)) );
+        _vtable.forEach((k, v) -> dict.add(new Eforth_Code(k)));	// create primitive words
         
 		final String immd[] = {
 			"if",    "else",  "then",
@@ -102,12 +102,9 @@ public class Eforth_VM {
         	//dict.add(new Eforth_Code(s).immediate());
         	find(s).immediate();
         }
-        for (Eforth_Code w:dict) {
-        	System.out.println(w.name+"=>"+w.idx);
-        }
 	}
 	
-	Hashtable<String, XT<Eforth_Code>> _vtable = new Hashtable<>() {{
+	final Hashtable<String, XT<Eforth_Code>> _vtable = new Hashtable<>() {{
 		// stacks
 		put( "dup",   c -> ss.push(ss.peek()) 				);
 		put( "over",  c -> ss.push(ss.get(ss.size()-2)) 	);
@@ -188,14 +185,14 @@ public class Eforth_VM {
 		put( "[",     c -> comp = false	);
 		put( "]",     c -> comp = true	);
 		put( "'",     c -> { 
-			Eforth_Code  w = find(tok.nextToken());
+			var  w = find(tok.nextToken());
 			ss.push(w==null ? -1 : w.idx);
 		});
 		
-		put( "dolit", c -> ss.push(((Eforth_Code)c).qf.head()) );			// integer literal
-		put( "dostr", c -> ss.push(((Eforth_Code)c).idx)		);			// string literals
+		put( "dolit", c -> ss.push(c.qf.head()) );			// integer literal
+		put( "dostr", c -> ss.push(c.idx)		);			// string literals
 		put( "$\"",   c -> {  	// -- w a
-			Eforth_Code last = dict.tail();
+			var last = dict.tail();
 			ss.push(last.idx);
 			ss.push(last.pf.size());
 			
@@ -203,7 +200,7 @@ public class Eforth_VM {
 			colon_add(new Eforth_Code("dostr", s));							// literal=s
 			tok.nextToken();
 		});
-		put( "dotstr",c -> System.out.print(((Eforth_Code)c).literal)		);
+		put( "dotstr",c -> System.out.print(c.literal)		);
 		put( ".\"",   c -> {
 			String s = tok.nextToken("\"");
 			colon_add(new Eforth_Code("dotstr", s));						// literal=s
@@ -221,30 +218,29 @@ public class Eforth_VM {
 
 		// structure: if else then
 		put( "branch",c -> {
-			for (var w: (ss.pop()!=0 ? ((Eforth_Code)c).pf : ((Eforth_Code)c).pf1)) xt(w);
+			for (var w: (ss.pop()!=0 ? c.pf : c.pf1)) xt(w);
 		});
 		put( "if",    c -> { 
-			Eforth_Code   last = dict.tail();
 			colon_add(new Eforth_Code("branch"));						// literal=s
 			dict.add(new Eforth_Code("temp"));
 		});
 		put( "else",  c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			last.add(temp.pf);
 			temp.pf.clear();
-			last.pf.tail().stage=1; 
+			last.stage=1; 
 		});
 		put( "then",  c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			if (last.pf.tail().stage==0) {
-				last.pf.tail().pf.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			if (last.stage==0) {
+				last.add(temp.pf);
 				dict.drop_tail();
 			} 
 			else {
-				last.pf.tail().pf1.addAll(temp.pf);
-				if (last.pf.tail().stage==1) {
+				last.add1(temp.pf);
+				if (last.stage==1) {
 					dict.drop_tail();
 				}
 				else temp.pf.clear();
@@ -252,20 +248,23 @@ public class Eforth_VM {
 		});
 		// loops
 		put( "loops", c -> {
-			Eforth_Code cc = (Eforth_Code)c;
-			if (cc.stage==1) {	// again
-				while(true) { for (var w:cc.pf) xt(w); }
-			}
-			if (cc.stage==2) {	// while repeat
+			switch (c.stage) {
+			case 1:		// again 
 				while (true) {
-					for (var w:cc.pf) xt(w);
-					if (ss.pop()==0) break;
-					for (var w:cc.pf1) xt(w);
+					for (var w:c.pf) xt(w);
 				}
-			} 
-			else {
-				while(true) {	// until
-					for (var w:cc.pf) xt(w);
+				// never comes here?
+				// break;
+			case 2:		// repeat
+				while (true) {
+					for (var w:c.pf) xt(w);
+					if (ss.pop()==0) break;
+					for (var w:c.pf1) xt(w);
+				}
+				break;
+			default:	// until
+				while (true) {
+					for (var w:c.pf) xt(w);
 					if (ss.pop()!=0) break;
 				}
 			}
@@ -275,74 +274,72 @@ public class Eforth_VM {
 			dict.add(new Eforth_Code("temp"));
 		});
 		put( "while", c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			last.add(temp.pf);
 			temp.pf.clear();
-			last.pf.tail().stage=2; 
+			last.stage=2; 
 		});
 		put( "repeat",c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			last.pf.tail().pf1.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			last.add1(temp);
 			dict.drop_tail();
 		});
 		put( "again", c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			last.pf.tail().pf.addAll(temp.pf);
-			last.pf.tail().stage=1;
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			last.add(temp);
+			last.stage=1;
 			dict.drop_tail();
 		});
 		put( "until", c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			last.add(temp);
 			dict.drop_tail();
 		});
 		// for next
 		put( "cycles", c -> {
-			Eforth_Code cc = (Eforth_Code)c;
 			int i=0;
-			if (cc.stage==0) {
+			if (c.stage==0) {
 				while(true){
-					for (var w:cc.pf) xt(w);
-					i=rs.pop();i--;
-					if (i<0) break;
+					for (var w: c.pf) xt(w);
+					i=rs.pop();
+					if (--i<0) break;
 					rs.push(i);
 				}
 			} 
 			else {
-				for (var w:cc.pf) xt(w);
+				for (var w:c.pf) xt(w);
 				while (true) {
-					for (var w:cc.pf2) xt(w);
+					for (var w: c.pf2) xt(w);
 					i = rs.pop();
 					if (--i<0) break;
 					rs.push(i);
-					for (var w:cc.pf1) xt(w);
+					for (var w: c.pf1) xt(w);
 				}
 			}
 		});
 		put( "for",  c -> {
-			Eforth_Code last = dict.tail();
 			colon_add(new Eforth_Code(">r"));
 			colon_add(new Eforth_Code("cycles"));
 			dict.add(new Eforth_Code("temp"));
 		});
 		put( "aft",  c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			last.add(temp.pf);
 			temp.pf.clear();
-			last.pf.tail().stage=3; 
+			last.stage=3; 
 		});
 		put( "next", c -> {
-			Eforth_Code last = dict.tail(2);
-			Eforth_Code temp = dict.tail();
-			if (last.pf.tail().stage==0) {
-				 last.pf.tail().pf.addAll(temp.pf);
+			var last = dict.tail(2).pf.tail();
+			var temp = dict.tail();
+			if (last.stage==0) {
+				 last.add(temp.pf);
 			}
-			else last.pf.tail().pf2.addAll(temp.pf);
+			else last.add2(temp.pf);
 			dict.drop_tail();
 		});
 		// defining words
@@ -353,78 +350,78 @@ public class Eforth_VM {
 			comp = true;
 		});
 		put( ";", c -> comp = false );
-		put( "docon", c -> ss.push(((Eforth_Code)c).qf.head()) );			// integer literal
-		put( "dovar", c -> ss.push(((Eforth_Code)c).idx)       );			// string literals
+		put( "docon", c -> ss.push(c.qf.head()) );					// integer literal
+		put( "dovar", c -> ss.push(c.idx)       );					// string literals
 		put( "create",c -> {
 			dict.add(new Eforth_Code(tok.nextToken()));
-			Eforth_Code last = dict.tail();
+			var last = dict.tail();
 			colon_add(new Eforth_Code("dovar",0));
 			last.pf.head().idx = last.idx;
 			last.pf.head().qf.drop_head();
 		});
 		put( "variable", c -> {  
 			dict.add(new Eforth_Code(tok.nextToken()));
-			Eforth_Code last = dict.tail();
+			var last = dict.tail();
 			colon_add(new Eforth_Code("dovar",0));
 			last.pf.head().idx = last.idx;
 		});
-		put( "constant", c -> {   // n --
+		put( "constant", c -> { // n --
 			dict.add(new Eforth_Code(tok.nextToken()));
-			Eforth_Code last = dict.tail();
+			var last = dict.tail();
 			colon_add(new Eforth_Code("docon",ss.pop()));
 			last.pf.head().idx = last.idx;
 		});
-		put( "@",  c -> {   // w -- n
-			Eforth_Code last = dict.get(ss.pop());
+		put( "@",  c -> {   	// w -- n
+			var last = dict.get(ss.pop());
 			ss.push(last.pf.head().qf.head());
 		});
-		put( "!",  c -> {   // n w -- 
-			Eforth_Code last = dict.get(ss.pop());
+		put( "!",  c -> {   	// n w -- 
+			var last = dict.get(ss.pop());
 			last.pf.head().qf.set_head(ss.pop());
 		});
-		put( "+!", c -> {   // n w -- 
-			Eforth_Code last = dict.get(ss.pop());
+		put( "+!", c -> {   	// n w -- 
+			var last = dict.get(ss.pop());
 			int n = last.pf.head().qf.head(); 
 			n+= ss.pop();
 			last.pf.head().qf.set_head(n);
 		});
-		put( "?",  c -> {   // w -- 
-			Eforth_Code last = dict.get(ss.pop());
+		put( "?",  c -> {   	// w -- 
+			var last = dict.get(ss.pop());
 			System.out.print(last.pf.head().qf.head());
 		});
 		put( "array@", c -> {   // w a -- n
 			int a = ss.pop();
-			Eforth_Code last = dict.get(ss.pop());
+			var last = dict.get(ss.pop());
 			ss.push(last.pf.head().qf.get(a));
 		});
 		put( "array!", c -> {   // n w a -- 
 			int a = ss.pop();
-			Eforth_Code last = dict.get(ss.pop());
+			var last = dict.get(ss.pop());
 			last.pf.head().qf.set(a, ss.pop());
 		});
-		put( ",",    c -> {  // n --
-			Eforth_Code last = dict.tail();
+		put( ",",    c -> {  	// n --
+			var last = dict.tail();
 			last.pf.head().qf.add(ss.pop());
 		});
-		put( "allot",c -> {   // n --
+		put( "allot",c -> {   	// n --
 			int n = ss.pop(); 
-			Eforth_Code last = dict.tail();
+			var last = dict.tail();
 			for (int i=0;i<n;i++) last.pf.head().qf.add(0);
 		});
-		put( "does", c -> {  // n --
-			Eforth_Code last = dict.tail();
-			Eforth_Code src  = dict.get(wp);
+		put( "does", c -> {  	// n --
+			var last = dict.tail();
+			var src  = dict.get(wp);
 			last.pf.addAll(src.pf.subList(ip+2, src.pf.size()));
 		});
 		put( "to",   c -> {   										// n -- , compile only 
-			Eforth_Code last = dict.get(wp);
+			var last = dict.get(wp);
 			ip++;													// current colon word
 			last.pf.get(ip++).pf.head().qf.set_head(ss.pop());		// next constant
 		});
 		put( "is",   c -> {   										// w -- , execute only
-			Eforth_Code   src = dict.get(ss.pop());						// source word
-			String s   = tok.nextToken(); 
-			Eforth_Code   w   = find(s);
+			var  src = dict.get(ss.pop());							// source word
+			String s = tok.nextToken(); 
+			var w    = find(s);
 
 			if (w==null) System.out.print(s+" ?");
 			else {
@@ -432,10 +429,10 @@ public class Eforth_VM {
 			}
 		});
 		// tools
-		put( "here",  c -> ss.push(((Eforth_Code)c).fence) );
+		put( "here",  c -> ss.push(Eforth_Code.fence) );
 		put( "words", c -> { 
 			int i=0;
-			for (Eforth_Code w:dict) {
+			for (var w: dict) {
 				System.out.print(w.name + " ");
 				if (++i>15) {
 					System.out.println();
@@ -446,7 +443,7 @@ public class Eforth_VM {
 		put( ".s",    c -> { for (int n:ss) System.out.print(Integer.toString(n,base)+" "); });
 		put( "see",   c -> { 
 			String s = tok.nextToken();
-			Eforth_Code   w = find(s);
+			var    w = find(s);
 			if (w==null) System.out.print(s+" ?");
 			else {
 				System.out.println(w.name+", "+w.idx+", "+w.qf.toString());

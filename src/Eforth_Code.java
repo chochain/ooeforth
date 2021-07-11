@@ -1,5 +1,3 @@
-import java.util.*;
-
 class Eforth_Code {
     static int      fence     = 0;
 		
@@ -22,5 +20,10 @@ class Eforth_Code {
     public Eforth_Code(String n, int d)    { name=n;  qf.add(d); }
     public Eforth_Code(String n, String l) { name=n;  literal=l; }
 
-    public Eforth_Code immediate()         { immd=true; return this; }
+    public Eforth_Code immediate()         				 	{ immd=true;  		return this; }
+    public Eforth_Code add(Eforth_Code w)  					{ pf.add(w);  		return this; }
+    public Eforth_Code add1(Eforth_Code w) 					{ pf1.add(w); 		return this; }
+    public Eforth_Code add(Eforth_List<Eforth_Code> lst)  	{ pf.addAll(lst);  	return this; }
+    public Eforth_Code add1(Eforth_List<Eforth_Code> lst) 	{ pf1.addAll(lst); 	return this; }
+    public Eforth_Code add2(Eforth_List<Eforth_Code> lst) 	{ pf2.addAll(lst); 	return this; }
 }

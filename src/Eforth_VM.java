@@ -1,5 +1,6 @@
 import java.util.*;
 import java.time.LocalTime;
+import java.util.function.BiConsumer;
 
 class Eforth_VM {
 	public int      base = 10;
@@ -62,6 +63,13 @@ class Eforth_VM {
         } 
         else run_inner(w);							// colon words
     }
+    //
+    // stack lambda operators
+    //
+    interface StackOp1 { int operate(int a); 		}
+    interface StackOp2 { int operate(int a, int b); } 
+    public void op1(StackOp1 m) { int n=ss.pop(); ss.push(m.operate(n));           }
+    public void op2(StackOp2 m) { int n=ss.pop(); ss.push(m.operate(ss.pop(), n)); }
 	
 	private void _setup_dic() {
 		//
@@ -128,33 +136,33 @@ class Eforth_VM {
 		put( "pick",  c -> { int i=ss.pop(); int n=ss.get(ss.size()-i-1);    ss.push(n);       });
 		put( "roll",  c -> { int i=ss.pop(); int n=ss.remove(ss.size()-i-1); ss.push(n);       });
 		// math
-		put( "+",     c -> ss.push(ss.pop()+ss.pop()) );
-		put( "*",     c -> ss.push(ss.pop()*ss.pop()) );
-		put( "-",     c -> { int n= ss.pop(); ss.push(ss.pop()-n);          });
-		put( "/",     c -> { int n= ss.pop(); ss.push(ss.pop()/n);          });
-		put( "*/",    c -> { int n=ss.pop();  ss.push(ss.pop()*ss.pop()/n); });
+		put( "+",     c -> op2((a,b)->a+b));
+		put( "*",     c -> op2((a,b)->a*b));
+		put( "-",     c -> op2((a,b)->a-b));
+		put( "/",     c -> op2((a,b)->a/b));
+		put( "mod",   c -> op2((a,b)->a%b));
+		put( "*/",    c -> { int n=ss.pop(); ss.push(ss.pop()*ss.pop()/n); });
 		put( "*/mod", c -> { 
 			int n=ss.pop();
 			int m=ss.pop()*ss.pop();
 			ss.push(m%n);
 			ss.push(m/n);
 		});
-		put( "mod",   c -> { int n= ss.pop(); ss.push(ss.pop()%n); });
 		// binary
-		put( "and",   c -> ss.push(ss.pop()&ss.pop()) 	);
-		put( "or",    c -> ss.push(ss.pop()|ss.pop()) 	);
-		put( "xor",   c -> ss.push(ss.pop()^ss.pop()) 	);
-		put( "negate",c -> ss.push(-ss.pop())           );
+		put( "and",   c -> op2((a,b)->a&b));
+		put( "or",    c -> op2((a,b)->a|b));
+		put( "xor",   c -> op2((a,b)->a^b));
+		put( "negate",c -> op1((a)->-a));
 		// logic
-		put( "0=",    c -> ss.push((ss.pop()==0)?-1:0)  );
-		put( "0<",    c -> ss.push((ss.pop()< 0)?-1:0)	);
-		put( "0>",    c -> ss.push((ss.pop()> 0)?-1:0)	);
-		put( "=",     c -> { int n= ss.pop(); ss.push((ss.pop()==n)?-1:0); });
-		put( ">",     c -> { int n= ss.pop(); ss.push((ss.pop()>n )?-1:0); });
-		put( "<",     c -> { int n= ss.pop(); ss.push((ss.pop()<n )?-1:0); });
-		put( "<>",    c -> { int n= ss.pop(); ss.push((ss.pop()!=n)?-1:0); });
-		put( ">=",    c -> { int n= ss.pop(); ss.push((ss.pop()>=n)?-1:0); });
-		put( "<=",    c -> { int n= ss.pop(); ss.push((ss.pop()<=n)?-1:0); });
+		put( "0=",    c -> op1(a->a==0?-1:0));
+		put( "0<",    c -> op1(a->a <0?-1:0));
+		put( "0>",    c -> op1(a->a >0?-1:0));
+		put( "=",     c -> op2((a,b)->(a==b)?-1:0));
+		put( ">",     c -> op2((a,b)->(a >b)?-1:0));
+		put( "<",     c -> op2((a,b)->(a <b)?-1:0));
+		put( "<>",    c -> op2((a,b)->(a!=b)?-1:0));
+		put( ">=",    c -> op2((a,b)->(a>=b)?-1:0));
+		put( "<=",    c -> op2((a,b)->(a>=b)?-1:0));
 		// output
 		put( "base@", c -> ss.push(base)		);
 		put( "base!", c -> base = ss.pop()		);
@@ -251,20 +259,20 @@ class Eforth_VM {
 			switch (c.stage) {
 			case 1:		// again 
 				while (true) {
-					for (var w:c.pf) xt(w);
+					for (var w: c.pf) xt(w);
 				}
 				// never comes here?
 				// break;
 			case 2:		// repeat
 				while (true) {
-					for (var w:c.pf) xt(w);
+					for (var w: c.pf) xt(w);
 					if (ss.pop()==0) break;
-					for (var w:c.pf1) xt(w);
+					for (var w: c.pf1) xt(w);
 				}
 				break;
 			default:	// until
 				while (true) {
-					for (var w:c.pf) xt(w);
+					for (var w: c.pf) xt(w);
 					if (ss.pop()!=0) break;
 				}
 			}
@@ -419,12 +427,12 @@ class Eforth_VM {
 			last.pf.get(ip++).pf.head().qf.set_head(ss.pop());		// next constant
 		});
 		put( "is",   c -> {   										// w -- , execute only
-			var  src = dict.get(ss.pop());							// source word
 			String s = tok.nextToken(); 
-			var w    = find(s);
+			var    w = find(s);
 
 			if (w==null) System.out.print(s+" ?");
 			else {
+				var src = dict.get(ss.pop());						// source word
 				dict.get(w.idx).pf = src.pf; 
 			}
 		});
@@ -440,7 +448,7 @@ class Eforth_VM {
 				}
 			}
 		});
-		put( ".s",    c -> { for (int n:ss) System.out.print(Integer.toString(n,base)+" "); });
+		put( ".s",    c -> { for (int n:ss) System.out.print(Integer.toString(n, base)+" "); });
 		put( "see",   c -> { 
 			String s = tok.nextToken();
 			var    w = find(s);

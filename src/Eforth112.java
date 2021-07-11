@@ -11,7 +11,6 @@ public class Eforth112 {	// ooeforth
 	static boolean  vm_comp = false;
 	static boolean  vm_run  = true;
 	static int 		base    = 10;
-	static int 		fence   = 0;
 	static int 		wp, ip;
 
 	interface XT<Code> {
@@ -21,10 +20,14 @@ public class Eforth112 {	// ooeforth
 		Code head()			  { return get(0);               }
 		Code tail()           { return get(size() - 1);      }
 		Code tail(int offset) { return get(size() - offset); }
+		void set_head(Code w) { set(0, w);                   }
+		void drop_head()      { remove(0);                   }
 		void drop_tail()      { remove(size()-1);            }
 	}
 	// primitive words
 	static class Code {
+		static int      fence     = 0;
+		
 		public String 	name;
 		public int 		idx       = 0;
 		public boolean 	immd      = false;
@@ -34,12 +37,12 @@ public class Eforth112 {	// ooeforth
 		public MyList<Code>  pf   = new MyList<>();
 		public MyList<Code>  pf1  = new MyList<>();
 		public MyList<Code>  pf2  = new MyList<>();
-		public List<Integer> qf   = new ArrayList<>() ;
+		public MyList<Integer> qf = new MyList<>();
 
 		public Code(String n) {
 			name = n;
-			fence++;
 			immd = false;
+			idx  = fence++;
 		}
 		public Code(String n, int d)    { name=n;  qf.add(d); }
 		public Code(String n, String l) { name=n;  literal=l; }
@@ -52,34 +55,25 @@ public class Eforth112 {	// ooeforth
 			else { 
 				rs.push(wp); 
 				rs.push(ip);
-				wp=idx; ip = 0;	// wp points to current colon object
+				wp = idx;       // wp points to current colon object
+				ip = 0;	            
 				for (Code w:pf) {
-					try { w.xt(); ip++; } 
+					try   { w.xt(); ip++; } 
 					catch (ArithmeticException e) {}
 				}
-				ip=rs.pop(); 
-				wp=rs.pop();
+				ip = rs.pop(); 
+				wp = rs.pop();
 			}
 		}
-		public void addCode(Code w) { this.pf.add(w);}
+		public void addCode(Code w) { this.pf.add(w); }
 	}
-
-	public static Code find(String idiom) {
-		Iterator<Code> i = dict.iterator();
-		while (i.hasNext()) {
-			Code w = i.next();
-			if (w.name.equals(idiom)) return w;
-		}
-		return null;
-	}
-	
 	static Hashtable<String, XT<Code>> lookUp = new Hashtable<>() {{
 		// stacks
 		put( "dup",   c -> ss.push(ss.peek()) 				);
 		put( "over",  c -> ss.push(ss.get(ss.size()-2)) 	);
 		put( "swap",  c -> ss.add(ss.size()-2,ss.pop()) 	);
-		put( "rot",   c -> ss.push(ss.remove(ss.size()-3)) );
-		put( "drop",  c -> ss.pop() 								);
+		put( "rot",   c -> ss.push(ss.remove(ss.size()-3))  );
+		put( "drop",  c -> ss.pop() 						);
 		put( "nip",   c -> ss.remove(ss.size()-2)  			);
 		put( "2drop", c -> { ss.pop(); ss.pop(); } 			);
 		put( ">r",    c -> rs.push(ss.pop())  				);
@@ -92,13 +86,13 @@ public class Eforth112 {	// ooeforth
 		put( "4dup",  c -> ss.addAll(ss.subList(ss.size()-4, ss.size())) 	);
 		put( "-rot",  c -> { ss.push(ss.remove(ss.size()-3)); ss.push(ss.remove(ss.size()-3)); });
 		put( "2swap", c -> { ss.push(ss.remove(ss.size()-4)); ss.push(ss.remove(ss.size()-4)); });
-		put( "pick",  c -> { int i=ss.pop(); int n=ss.get(ss.size()-i-1);    ss.push(n); });
-		put( "roll",  c -> { int i=ss.pop(); int n=ss.remove(ss.size()-i-1); ss.push(n); });
+		put( "pick",  c -> { int i=ss.pop(); int n=ss.get(ss.size()-i-1);    ss.push(n);       });
+		put( "roll",  c -> { int i=ss.pop(); int n=ss.remove(ss.size()-i-1); ss.push(n);       });
 		// math
 		put( "+",     c -> ss.push(ss.pop()+ss.pop()) );
-		put( "-",     c -> { int n= ss.pop(); ss.push(ss.pop()-n); });
 		put( "*",     c -> ss.push(ss.pop()*ss.pop()) );
-		put( "/",     c -> { int n= ss.pop(); ss.push(ss.pop()/n); });
+		put( "-",     c -> { int n= ss.pop(); ss.push(ss.pop()-n);          });
+		put( "/",     c -> { int n= ss.pop(); ss.push(ss.pop()/n);          });
 		put( "*/",    c -> { int n=ss.pop();  ss.push(ss.pop()*ss.pop()/n); });
 		put( "*/mod", c -> { 
 			int n=ss.pop();
@@ -110,9 +104,9 @@ public class Eforth112 {	// ooeforth
 		put( "and",   c -> ss.push(ss.pop()&ss.pop()) 	);
 		put( "or",    c -> ss.push(ss.pop()|ss.pop()) 	);
 		put( "xor",   c -> ss.push(ss.pop()^ss.pop()) 	);
-		put( "negate",c -> ss.push(-ss.pop())            	);
+		put( "negate",c -> ss.push(-ss.pop())           );
 		// logic
-		put( "0=",    c -> ss.push((ss.pop()==0)?-1:0)   	);
+		put( "0=",    c -> ss.push((ss.pop()==0)?-1:0)  );
 		put( "0<",    c -> ss.push((ss.pop()< 0)?-1:0)	);
 		put( "0>",    c -> ss.push((ss.pop()> 0)?-1:0)	);
 		put( "=",     c -> { int n= ss.pop(); ss.push((ss.pop()==n)?-1:0); });
@@ -134,13 +128,13 @@ public class Eforth112 {	// ooeforth
 			for (int i=0; i+s.length()<n; i++) System.out.print(" ");
 			System.out.print(s+" ");
 		});
-		put( "u.r",   c -> { 
+		put( "u.r",   c -> {
 			int n=ss.pop();
 			String s=Integer.toString(ss.pop()&0x7fffffff, base);
 			for (int i=0;i+s.length()<n; i++) System.out.print(" ");
 			System.out.print(s+" ");
 		});
-		put( "key",   c -> ss.push((int)tok.nextToken().charAt(0)) 		);
+		put( "key",   c -> ss.push((int)tok.nextToken().charAt(0)) 			);
 		put( "emit",  c -> System.out.print(Character.toChars(ss.pop()))	);
 		put( "space", c -> System.out.print(" ") );
 		put( "spaces",c -> {
@@ -151,13 +145,12 @@ public class Eforth112 {	// ooeforth
 		put( "[",     c -> vm_comp = false	);
 		put( "]",     c -> vm_comp = true	);
 		put( "'",     c -> { 
-			String  s = tok.nextToken();
-			Code    w = find(s);
+			Code  w = find(dict, tok.nextToken());
 			ss.push(w==null ? -1 : w.idx);
 		});
 		
-		put( "dolit", c -> ss.push(((Code)c).qf.get(0))			);	// integer literal
-		put( "dostr", c -> ss.push(((Code)c).idx)				);	// string literals
+		put( "dolit", c -> ss.push(((Code)c).qf.head()) );			// integer literal
+		put( "dostr", c -> ss.push(((Code)c).idx)		);			// string literals
 		put( "$\"",   c -> {  // -- w a
 			String s    = tok.nextToken("\"");
 			Code   last = dict.tail();
@@ -166,7 +159,7 @@ public class Eforth112 {	// ooeforth
 			ss.push(last.idx);
 			ss.push(last.pf.size()-1);
 		});
-		put( "dotstr",c -> System.out.print(((Code)c).literal)	);
+		put( "dotstr",c -> System.out.print(((Code)c).literal)		);
 		put( ".\"",   c -> {
 			String s = tok.nextToken("\"");
 			dict.tail().addCode(new Code("dotstr", s));				// literal=s
@@ -177,8 +170,7 @@ public class Eforth112 {	// ooeforth
 
 		// structure: if else then
 		put( "branch",c -> {
-			Code cc = (Code)c;
-			for (var w: (ss.pop()!=0 ? cc.pf : cc.pf1)) w.xt();
+			for (var w: (ss.pop()!=0 ? ((Code)c).pf : ((Code)c).pf1)) w.xt();
 		});
 		put( "if",    c -> { 
 			dict.tail().addCode(new Code("branch"));
@@ -306,51 +298,47 @@ public class Eforth112 {	// ooeforth
 		put( "exec", c -> { int n=ss.pop(); dict.get(n).xt(); });
 		put( ":",    c -> {          								// -- box
 			dict.add(new Code(tok.nextToken()));
-			dict.tail().idx=fence++;
 			vm_comp = true;
 		});
 		put( ";", c -> vm_comp = false );
-		put( "docon", c -> ss.push(((Code)c).qf.get(0))  );			// integer literal
+		put( "docon", c -> ss.push(((Code)c).qf.head()) );			// integer literal
 		put( "dovar", c -> ss.push(((Code)c).idx)      	);			// string literals
 		put( "create",c -> {
 			dict.add(new Code(tok.nextToken()));
 			Code last = dict.tail();
-			last.idx=fence++;
 			last.addCode(new Code("dovar",0));
 			last.pf.head().idx = last.idx;
-			last.pf.head().qf.remove(0);
+			last.pf.head().qf.drop_head();
 		});
 		put( "variable", c -> {  
 			dict.add(new Code(tok.nextToken()));
 			Code last = dict.tail();
-			last.idx=fence++;
 			last.addCode(new Code("dovar",0));
 			last.pf.head().idx = last.idx;
 		});
 		put( "constant", c -> {   // n --
 			dict.add(new Code(tok.nextToken()));
 			Code last = dict.tail();
-			last.idx  = fence++;
 			last.addCode(new Code("docon",ss.pop()));
 			last.pf.head().idx = last.idx;
 		});
 		put( "@",  c -> {   // w -- n
 			Code last = dict.get(ss.pop());
-			ss.push(last.pf.head().qf.get(0));
+			ss.push(last.pf.head().qf.head());
 		});
 		put( "!",  c -> {   // n w -- 
 			Code last = dict.get(ss.pop());
-			last.pf.head().qf.set(0,ss.pop());
+			last.pf.head().qf.set_head(ss.pop());
 		});
 		put( "+!", c -> {   // n w -- 
 			Code last = dict.get(ss.pop());
-			int n = last.pf.get(0).qf.get(0); 
+			int n = last.pf.head().qf.head(); 
 			n+= ss.pop();
-			last.pf.head().qf.set(0,n);
+			last.pf.head().qf.set_head(n);
 		});
 		put( "?",  c -> {   // w -- 
 			Code last = dict.get(ss.pop());
-			System.out.print(last.pf.head().qf.get(0));
+			System.out.print(last.pf.head().qf.head());
 		});
 		put( "array@", c -> {   // w a -- n
 			int a = ss.pop();
@@ -360,7 +348,7 @@ public class Eforth112 {	// ooeforth
 		put( "array!", c -> {   // n w a -- 
 			int a = ss.pop();
 			Code last = dict.get(ss.pop());
-			last.pf.head().qf.set(a,ss.pop());
+			last.pf.head().qf.set(a, ss.pop());
 		});
 		put( ",",    c -> {  // n --
 			Code last = dict.tail();
@@ -376,15 +364,15 @@ public class Eforth112 {	// ooeforth
 			Code src  = dict.get(wp);
 			last.pf.addAll(src.pf.subList(ip+2, src.pf.size()));
 		});
-		put( "to",   c -> {   									// n -- , compile only 
+		put( "to",   c -> {   										// n -- , compile only 
 			Code last = dict.get(wp);
-			ip++;												// current colon word
-			last.pf.get(ip++).pf.head().qf.set(0, ss.pop());	// next constant
+			ip++;													// current colon word
+			last.pf.get(ip++).pf.head().qf.set_head(ss.pop());		// next constant
 		});
-		put( "is",   c -> {   									// w -- , execute only
-			Code   src = dict.get(ss.pop());					// source word
+		put( "is",   c -> {   										// w -- , execute only
+			Code   src = dict.get(ss.pop());						// source word
 			String s   = tok.nextToken(); 
-			Code   w   = find(s);
+			Code   w   = find(dict, s);
 
 			if (w==null) System.out.print(s+" ?");
 			else {
@@ -392,10 +380,10 @@ public class Eforth112 {	// ooeforth
 			}
 		});
 		// tools
-		put( "here",  c -> ss.push(fence) );
+		put( "here",  c -> ss.push(((Code)c).fence) );
 		put( "words", c -> { 
 			int i=0;
-			for (var w:dict) {
+			for (Code w:dict) {
 				System.out.print(w.name + " ");
 				if (++i>15) {
 					System.out.println();
@@ -406,7 +394,7 @@ public class Eforth112 {	// ooeforth
 		put( ".s",    c -> { for (int n:ss) System.out.print(Integer.toString(n,base)+" "); });
 		put( "see",   c -> { 
 			String s = tok.nextToken();
-			Code   w = find(s);
+			Code   w = find(dict, s);
 			if (w==null) System.out.print(s+" ?");
 			else {
 				System.out.println(w.name+", "+w.idx+", "+w.qf.toString());
@@ -423,7 +411,62 @@ public class Eforth112 {	// ooeforth
 		});
 		put( "bye",   c -> vm_run = false );
 	}};
+	//
+	// static functions
+	//
+	public static Code find(MyList<Code> lst, String str) {
+		Iterator<Code> i = lst.iterator();
+		while (i.hasNext()) {
+			Code w = i.next();
+			if (str.equals(w.name)) return w;
+		}
+		return null;
+	}
 	
+	public static void setup_dic() {
+		//
+		//final String words[] = {
+		//	//--------+--------+--------+--------+--------+--------+--------+--------+--------+--------
+        //    "dup",	  "over",  "swap",  "rot",   "drop",  "nip",   "2drop", ">r",    "r>",    "r@",
+        //    "push",   "pop",   "2dup",  "2over", "4dup",  "-rot",  "2swap", "pick",  "roll",  "+",
+        //    "-",      "*",     "/",     "*/",    "*/mod", "mod",   "and",   "or",    "xor",   "negate",
+        //    "0=",     "0<",    "0>",    "=",     ">",     "<",     "<>",    ">=",    "<=",    "base@",
+        //    "base!",  "hex",   "decimal","cr",   ".",     ".r",    "u.r",   "key",   "emit",  "space",
+        //    "spaces", "[",     "]",     "'",     "dolit", "dostr", "$\"",   "dotstr",".\"",   "repeat",
+        //    "(",      ".(",    "\\",    "branch","if",    "else",  "then",  "loops", "begin", "while",
+        //    "again",  "until", "cycles","for",   "aft",   "next",  "exit",  "exec",  ":",     ";",
+        //    "docon",  "dovar", "create","variable","constant","@", "!",     "+!",    "?",     "array@",
+        //    "array!", ",",     "allot", "does",  "to",    "is",    "here",  "words", ".s",    "see",
+        //    "time",   "ms",    "bye"
+		//};
+        //for (String s: words) { dict.add(new Code(s)); 				}
+        //
+        // double check whether we have them all listed
+        //
+        //lookUp.forEach((k, v) -> {
+        //	Code w = find(dict, k);
+        //	if (w==null) System.out.println("not found:"+k);
+        //});
+        //
+        // double check whether we have them all listed
+        //
+        lookUp.forEach( (k, v) -> dict.add(new Code(k)) );
+        
+		final String immd[] = {
+			"if",    "else",  "then",
+			"begin", "again", "until", "while", "repeat", 
+			"for",   "next",  "aft",
+			";",    "$\"",    ".\"",  "(",    "\\"    
+		};
+        for (String s: immd)  {	
+        	//dict.add(new Code(s).immediate());
+        	find(dict, s).immediate();
+        }
+        for (Code w:dict) {
+        	System.out.println(w.name+"=>"+w.idx);
+        }
+	}
+
 	public static void parser(String tib)
 	{
 		tok = new StringTokenizer(tib);
@@ -432,20 +475,14 @@ public class Eforth112 {	// ooeforth
 		while (vm_run && tok.hasMoreTokens()) {
 			idiom = tok.nextToken().trim();
 
-			Code word = null;
-			for (var w:dict) {  							// search dictionary
-				if (w.name.equals(idiom)) {
-					word = w;
-					break;
-				}
-			}
-			if(word != null) {  							// word found
-				if(!vm_comp || word.immd) {
-					try { word.xt(); } 						// execute
+			Code w = find(dict, idiom);					// search dictionary
+			if(w != null) {  							// word found
+				if(!vm_comp || w.immd) {
+					try { w.xt(); } 						// execute
 					catch (Exception e) { System.out.print(e); }
 				}
 				else {  									// or compile
-					dict.tail().addCode(word);
+					dict.tail().addCode(w);
 				}
 			}
 			else { 
@@ -463,19 +500,11 @@ public class Eforth112 {	// ooeforth
 			}
 		}
 	}
-	public static void setup_dic() {
-		lookUp.forEach(
-				(k, v) -> dict.add(new Code(k))
-		);
-		final String immd[] = {
-			";",    "$\"",    ".\"",  "(",    "\\",    "if",   "else", "then",  "begin",  "again",
-			"until","while",  "repeat","for", "next",  "aft"
-		};
-		for (String s: immd)  {	find(s).immediate(); }
-	}
 
 	public static void main(String args[]) {	// ooeforth 1.12
 		System.out.println("ooeForth1.12");
+		new AwtTest();  
+		/*
 		setup_dic();
 
 		// outer interpreter
@@ -493,6 +522,7 @@ public class Eforth112 {	// ooeforth
 			}
 		}
 		in.close();
+		*/
 		System.out.println("Thank you.");
 	}
 	

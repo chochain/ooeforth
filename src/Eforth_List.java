@@ -1,11 +1,12 @@
 import java.util.*;
 
-public class Eforth_List<Eforth_Code> extends ArrayList<Eforth_Code> {
-    Eforth_Code head()			 { return get(0);               }
-    Eforth_Code tail()           { return get(size() - 1);      }
-    Eforth_Code tail(int offset) { return get(size() - offset); }
-    void set_head(Eforth_Code w) { set(0, w);                   }
-    void drop_head()      		 { remove(0);                   }
-    void drop_tail()      		 { remove(size()-1);            }
+final class Eforth_List<T> extends ArrayList<T> {
+    T head()		   { return get(0);               }
+    T tail()           { return get(size() - 1);      }
+    T tail(int offset) { return get(size() - offset); }
+    
+    Eforth_List<T> set_head(T w) { set(0, w);        return this; }
+    Eforth_List<T> drop_head()   { remove(0);        return this; }
+    Eforth_List<T> drop_tail()   { remove(size()-1); return this; }
 }
 	

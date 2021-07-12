@@ -1,6 +1,6 @@
 import java.util.*;
 
-final class Eforth_List<T> extends ArrayList<T> {
+final public class Eforth_List<T> extends ArrayList<T> {
     T head()		   { return get(0);               }
     T tail()           { return get(size() - 1);      }
     T tail(int offset) { return get(size() - offset); }

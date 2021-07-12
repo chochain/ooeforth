@@ -1,4 +1,4 @@
-class Eforth_Code {
+public class Eforth_Code {
     static int      fence     = 0;
 		
     public String 	name;

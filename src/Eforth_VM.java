@@ -1,25 +1,29 @@
 import java.util.*;
+import java.io.*;
 import java.time.LocalTime;
-import java.util.function.BiConsumer;
 
 class Eforth_VM {
-	public int      base = 10;
-	public boolean  run  = true;
-	public boolean  comp = false;
+	public int      			base   = 10;
+	public boolean  		 	run    = true;
+	public boolean  		 	comp   = false;
+	public StringTokenizer 		tok    = null;
+	public PrintWriter 			out    = new PrintWriter(System.out, true);
 	
-	Stack<Integer>  ss   = new Stack<>();
-	Stack<Integer>  rs   = new Stack<>();
+	Stack<Integer>  		 ss   = new Stack<>();
+	Stack<Integer>  		 rs   = new Stack<>();
 	Eforth_List<Eforth_Code> dict = new Eforth_List<Eforth_Code>();
-	
 	int wp, ip;
-
-	StringTokenizer tok = null;
-    
-	interface XT<T> {
-		void run(T c);
-	}
+    //
+	// functional interfaces
+	//
+	interface XT<T>    { void run(T c);             }
+    interface StackOp1 { int operate(int a); 		}
+    interface StackOp2 { int operate(int a, int b); } 
 	
 	Eforth_VM() { _setup_dic(); } 
+
+	public void setInput(StringTokenizer tok0) { tok = tok0; }
+	public void setOutput(PrintWriter out0)    { out = out0; }
 	
 	public Eforth_Code find(String str) {
 		Iterator<Eforth_Code> i = dict.iterator();
@@ -29,17 +33,16 @@ class Eforth_VM {
 		}
 		return null;
 	}
-	public void setParser(StringTokenizer pr) { tok = pr;   }
     public void colon_add(Eforth_Code w)      { dict.tail().add(w); }		// add to new word
     public void ss_push(Integer n)      	  { ss.push(n); }
     public void ss_dump() {
 		if (comp) {
-			System.out.print("> ");
+			out.print("> ");
 		}
 		else {
-			System.out.println();
-			for (int n:ss) System.out.print(Integer.toString(n, base)+" ");
-			System.out.print("OK ");
+			out.println();
+			for (int n:ss) out.print(Integer.toString(n, base)+" ");
+			out.print("OK ");
 		}
     }
 	public void run_inner(Eforth_Code colon_w) {	// 
@@ -57,7 +60,7 @@ class Eforth_VM {
         ip = rs.pop(); 
         wp = rs.pop();
 	}
-    public void xt(Eforth_Code w) {
+    public void xt(Eforth_Code w) {					// execution unit
         if (_vtable.containsKey(w.name)) {			// primitives
             _vtable.get(w.name).run(w);
         } 
@@ -66,8 +69,6 @@ class Eforth_VM {
     //
     // stack lambda operators
     //
-    interface StackOp1 { int operate(int a); 		}
-    interface StackOp2 { int operate(int a, int b); } 
     public void op1(StackOp1 m) { int n=ss.pop(); ss.push(m.operate(n));           }
     public void op2(StackOp2 m) { int n=ss.pop(); ss.push(m.operate(ss.pop(), n)); }
 	
@@ -93,7 +94,7 @@ class Eforth_VM {
         //
         //lookUp.forEach((k, v) -> {
         //	Eforth_Code w = find(dict, k);
-        //	if (w==null) System.out.println("not found:"+k);
+        //	if (w==null) out.println("not found:"+k);
         //});
         //
         // double check whether we have them all listed
@@ -111,7 +112,6 @@ class Eforth_VM {
         	find(s).immediate();
         }
 	}
-	
 	final Hashtable<String, XT<Eforth_Code>> _vtable = new Hashtable<>() {{
 		// stacks
 		put( "dup",   c -> ss.push(ss.peek()) 				);
@@ -120,7 +120,6 @@ class Eforth_VM {
 		put( "rot",   c -> ss.push(ss.remove(ss.size()-3))  );
 		put( "drop",  c -> ss.pop() 						);
 		put( "nip",   c -> ss.remove(ss.size()-2)  			);
-		put( "2drop", c -> { ss.pop(); ss.pop(); } 			);
 		put( ">r",    c -> rs.push(ss.pop())  				);
 		put( "r>",    c -> ss.push(rs.pop())  				);
 		put( "r@",    c -> ss.push(rs.peek()) 				);
@@ -128,6 +127,7 @@ class Eforth_VM {
 		put( "push",  c -> rs.push(ss.pop())  				);
 		put( "pop",   c -> ss.push(rs.pop())  				);
 		// extra stack
+		put( "2drop", c -> { ss.pop(); ss.pop(); } 			);
 		put( "2dup",  c -> ss.addAll(ss.subList(ss.size()-2, ss.size())) 	);
 		put( "2over", c -> ss.addAll(ss.subList(ss.size()-4, ss.size()-2)) 	);
 		put( "4dup",  c -> ss.addAll(ss.subList(ss.size()-4, ss.size())) 	);
@@ -168,26 +168,26 @@ class Eforth_VM {
 		put( "base!", c -> base = ss.pop()		);
 		put( "hex",   c -> base = 16			);
 		put( "decimal",c-> base = 10			);
-		put( "cr",    c -> System.out.println()	);
-		put( ".",     c -> System.out.print(Integer.toString(ss.pop(), base)+" ") );
+		put( "cr",    c -> out.println()	);
+		put( ".",     c -> out.print(Integer.toString(ss.pop(), base)+" ") );
 		put( ".r",    c -> { 
 			int n=ss.pop();
 			String s=Integer.toString(ss.pop(), base);
-			for (int i=0; i+s.length()<n; i++) System.out.print(" ");
-			System.out.print(s+" ");
+			for (int i=0; i+s.length()<n; i++) out.print(" ");
+			out.print(s+" ");
 		});
 		put( "u.r",   c -> {
 			int n=ss.pop();
 			String s=Integer.toString(ss.pop()&0x7fffffff, base);
-			for (int i=0;i+s.length()<n; i++) System.out.print(" ");
-			System.out.print(s+" ");
+			for (int i=0;i+s.length()<n; i++) out.print(" ");
+			out.print(s+" ");
 		});
 		put( "key",   c -> ss.push((int)tok.nextToken().charAt(0)) 			);
-		put( "emit",  c -> System.out.print(Character.toChars(ss.pop()))	);
-		put( "space", c -> System.out.print(" ") );
+		put( "emit",  c -> out.print(Character.toChars(ss.pop()))	);
+		put( "space", c -> out.print(" ") );
 		put( "spaces",c -> {
 			int n=ss.pop();
-			for (int i=0; i<n; i++) System.out.print(" ");
+			for (int i=0; i<n; i++) out.print(" ");
 		});
 		// literals
 		put( "[",     c -> comp = false	);
@@ -208,7 +208,7 @@ class Eforth_VM {
 			colon_add(new Eforth_Code("dostr", s));							// literal=s
 			tok.nextToken();
 		});
-		put( "dotstr",c -> System.out.print(c.literal)		);
+		put( "dotstr",c -> out.print(c.literal));
 		put( ".\"",   c -> {
 			String s = tok.nextToken("\"");
 			colon_add(new Eforth_Code("dotstr", s));						// literal=s
@@ -219,10 +219,10 @@ class Eforth_VM {
 			tok.nextToken(" ");
 		});
 		put( ".(",    c -> {
-			System.out.print(tok.nextToken("\\)"));
+			out.print(tok.nextToken("\\)"));
 			tok.nextToken(" ");
 		});
-		put( "\\",    c -> tok.nextToken("\n")						);
+		put( "\\",    c -> tok.nextToken("\n"));
 
 		// structure: if else then
 		put( "branch",c -> {
@@ -395,7 +395,7 @@ class Eforth_VM {
 		});
 		put( "?",  c -> {   	// w -- 
 			var last = dict.get(ss.pop());
-			System.out.print(last.pf.head().qf.head());
+			out.print(last.pf.head().qf.head());
 		});
 		put( "array@", c -> {   // w a -- n
 			int a = ss.pop();
@@ -430,7 +430,7 @@ class Eforth_VM {
 			String s = tok.nextToken(); 
 			var    w = find(s);
 
-			if (w==null) System.out.print(s+" ?");
+			if (w==null) out.print(s+" ?");
 			else {
 				var src = dict.get(ss.pop());						// source word
 				dict.get(w.idx).pf = src.pf; 
@@ -441,30 +441,30 @@ class Eforth_VM {
 		put( "words", c -> { 
 			int i=0;
 			for (var w: dict) {
-				System.out.print(w.name + " ");
+				out.print(w.name + " ");
 				if (++i>15) {
-					System.out.println();
+					out.println();
 					i=0;
 				}
 			}
 		});
-		put( ".s",    c -> { for (int n:ss) System.out.print(Integer.toString(n, base)+" "); });
+		put( ".s",    c -> { for (int n:ss) out.print(Integer.toString(n, base)+" "); });
 		put( "see",   c -> { 
 			String s = tok.nextToken();
 			var    w = find(s);
-			if (w==null) System.out.print(s+" ?");
+			if (w==null) out.print(s+" ?");
 			else {
-				System.out.println(w.name+", "+w.idx+", "+w.qf.toString());
-				for (var p: w.pf) System.out.print(p.name+", "+p.idx+", "+p.qf.toString()+"| ");       
+				out.println(w.name+", "+w.idx+", "+w.qf.toString());
+				for (var p: w.pf) out.print(p.name+", "+p.idx+", "+p.qf.toString()+"| ");       
 			}
 		});
 		put( "time",  c -> { 
 			LocalTime now = LocalTime.now();
-			System.out.println(now); 
+			out.println(now); 
 		});
 		put( "ms",    c -> {  // n --
 			try { Thread.sleep(ss.pop());} 
-			catch (Exception e) { System.out.println(e); }
+			catch (Exception e) { out.println(e); }
 		});
 		put( "bye",   c -> run = false );
 	}};

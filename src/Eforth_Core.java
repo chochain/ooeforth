@@ -1,16 +1,49 @@
 import java.util.*;
+import java.io.*;
 
-class Eforth_Core {	// ooeforth
-	static StringTokenizer tok  = null;
-	static Eforth_VM       vm   = new Eforth_VM();
+class Eforth_Core implements Runnable {						// ooeforth
+	Eforth_VM 	 vm;
+	InputStream  input;
+	PrintWriter  output;
 
-	public static void run_outer(String tib)
+	Eforth_Core(InputStream in0, PrintWriter out0) { 
+		input  = in0;
+		output = out0;
+		vm     = new Eforth_VM(); 
+		vm.setOutput(out0);
+	}
+
+	public void run() {
+		try (Scanner sc = new Scanner(input)) {
+			// outer interpreter
+			output.println("ooeForth2");
+			while (vm.run) {
+				String tib = sc.nextLine();
+			
+				_outer_interp(tib);
+				
+				if (vm.comp) {
+					output.print("> ");
+				}
+				else vm.ss_dump();
+			}
+		}
+		catch (Exception e) { 
+			output.println(e.getMessage()); 
+		}
+		finally {
+			output.println("Thank you.");
+		}
+	}
+
+	private void _outer_interp(String tib)
 	{
-		vm.setParser(tok = new StringTokenizer(tib));
+		StringTokenizer tok = new StringTokenizer(tib);
 		
-		String idiom = "";
+		vm.setInput(tok);									// set input stream
+
 		while (vm.run && tok.hasMoreTokens()) {
-			idiom = tok.nextToken().trim();
+			String idiom = tok.nextToken().trim();
 
 			Eforth_Code w = vm.find(idiom);					// search dictionary
 			if (w != null) {  								// word found
@@ -19,7 +52,7 @@ class Eforth_Core {	// ooeforth
 						vm.xt(w);							// execute word
 					}
 					catch (Exception e) { 
-						System.out.print(e); 
+						output.print(e); 
 					}
 				}
 				else vm.colon_add(w);						// or in compile mode
@@ -35,7 +68,7 @@ class Eforth_Core {	// ooeforth
 					}
 				}											// or push number on stack
 				catch (NumberFormatException  ex) {			// catch number errors
-					System.out.println(idiom + " ?");
+					output.println(idiom + " ?");
 					vm.comp = false; 
 				}
 			}
@@ -43,22 +76,12 @@ class Eforth_Core {	// ooeforth
 	}
 
 	public static void main(String args[]) {				// ooeforth 1.12
-		System.out.println("ooeForth1.12");
-
-		// outer interpreter
-		Scanner in = new Scanner(System.in);
-		while (vm.run) {
-			String tib = in.nextLine();
-			run_outer(tib);
-			
-			if (vm.comp) {
-				System.out.print("> ");
-			}
-			else vm.ss_dump();
+		InputStream in  = System.in;
+		
+		try (PrintWriter out = new PrintWriter(System.out, true)) {
+			new Eforth_Core(in, out).run();
 		}
-		in.close();
-		System.out.println("Thank you.");
+		catch (Exception e) {}
 	}
-	
 }
 

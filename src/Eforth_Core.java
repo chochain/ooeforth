@@ -1,7 +1,9 @@
 import java.util.*;
 import java.io.*;
 
-class Eforth_Core implements Runnable {						// ooeforth
+public class Eforth_Core implements Runnable {				// ooeforth
+	static final String VERSION = "ooeForth2.0";
+	static final String GREET   = "Thank you.";
 	Eforth_VM 	 vm;
 	InputStream  input;
 	PrintWriter  output;
@@ -12,70 +14,26 @@ class Eforth_Core implements Runnable {						// ooeforth
 		vm     = new Eforth_VM(); 
 		vm.setOutput(out0);
 	}
-
+	/**
+	 * 
+	 */
 	public void run() {
-		try (Scanner sc = new Scanner(input)) {
-			// outer interpreter
-			output.println("ooeForth2");
-			while (vm.run) {
+		try (Scanner sc = new Scanner(input)) {				// auto close
+			output.println(VERSION);
+			while (vm.ok()) {
 				String tib = sc.nextLine();
-			
-				_outer_interp(tib);
-				
-				if (vm.comp) {
-					output.print("> ");
-				}
-				else vm.ss_dump();
+				vm.parse(tib);
 			}
 		}
 		catch (Exception e) { 
 			output.println(e.getMessage()); 
 		}
 		finally {
-			output.println("Thank you.");
+			output.println(GREET);
 		}
 	}
 
-	private void _outer_interp(String tib)
-	{
-		StringTokenizer tok = new StringTokenizer(tib);
-		
-		vm.setInput(tok);									// set input stream
-
-		while (vm.run && tok.hasMoreTokens()) {
-			String idiom = tok.nextToken().trim();
-
-			Eforth_Code w = vm.find(idiom);					// search dictionary
-			if (w != null) {  								// word found
-				if (!vm.comp || w.immd) {
-					try { 									// immediate mode
-						vm.xt(w);							// execute word
-					}
-					catch (Exception e) { 
-						output.print(e); 
-					}
-				}
-				else vm.colon_add(w);						// or in compile mode
-			}
-			else { 											// word not found
-				try {
-					int n=Integer.parseInt(idiom, vm.base); // not word, try number
-					if (vm.comp) {  						// compile integer literal
-						vm.colon_add(new Eforth_Code("dolit", n));	// append literal to latest defined word
-					}
-					else {
-						vm.ss_push(n);
-					}
-				}											// or push number on stack
-				catch (NumberFormatException  ex) {			// catch number errors
-					output.println(idiom + " ?");
-					vm.comp = false; 
-				}
-			}
-		}
-	}
-
-	public static void main(String args[]) {				// ooeforth 1.12
+	public static void main0(String args[]) {				// ooeforth 1.12
 		InputStream in  = System.in;
 		
 		try (PrintWriter out = new PrintWriter(System.out, true)) {

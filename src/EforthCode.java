@@ -1,29 +1,26 @@
-public class Eforth_Code {
+public class EforthCode {
     static int      fence     = 0;
 		
     public String 	name;
     public int 		idx       = 0;
     public boolean 	immd      = false;
     public int      stage     = 0;
-    public String 	literal;
+    public String 	str;
 
-    public Eforth_List<Eforth_Code> pf  = new Eforth_List<>();
-    public Eforth_List<Eforth_Code> pf1 = new Eforth_List<>();
-    public Eforth_List<Eforth_Code> pf2 = new Eforth_List<>();
-    public Eforth_List<Integer>     qf  = new Eforth_List<>();
+    public EforthList<EforthCode>   pf  = new EforthList<>();
+    public EforthList<EforthCode>   pf1 = new EforthList<>();
+    public EforthList<EforthCode>   pf2 = new EforthList<>();
+    public EforthList<Integer>  qf  = new EforthList<>();
 
-    public Eforth_Code(String n) {
-        name = n;
-        immd = false;
-        idx  = fence++;
-    }
-    public Eforth_Code(String n, int d)    { name=n;  qf.add(d); }
-    public Eforth_Code(String n, String l) { name=n;  literal=l; }
+    public EforthCode(String n) 		   { name=n; idx=fence++; }
+    public EforthCode(String n, boolean b) { name=n; }
+    public EforthCode(String n, int d)     { name=n; qf.add(d); }
+    public EforthCode(String n, String s)  { name=n; str=s; }
 
-    public Eforth_Code immediate()         				 	{ immd=true;  		return this; }
-    public Eforth_Code add(Eforth_Code w)  					{ pf.add(w);  		return this; }
-    public Eforth_Code add1(Eforth_Code w) 					{ pf1.add(w); 		return this; }
-    public Eforth_Code add(Eforth_List<Eforth_Code> lst)  	{ pf.addAll(lst);  	return this; }
-    public Eforth_Code add1(Eforth_List<Eforth_Code> lst) 	{ pf1.addAll(lst); 	return this; }
-    public Eforth_Code add2(Eforth_List<Eforth_Code> lst) 	{ pf2.addAll(lst); 	return this; }
+    public EforthCode immediate()         		{ immd=true;  		return this; }
+    public EforthCode add(EforthCode w)  			{ pf.add(w);  		return this; }
+    public EforthCode add1(EforthCode w) 			{ pf1.add(w); 		return this; }
+    public EforthCode add(EforthList<EforthCode> lst)  	{ pf.addAll(lst);  	return this; }
+    public EforthCode add1(EforthList<EforthCode> lst) 	{ pf1.addAll(lst); 	return this; }
+    public EforthCode add2(EforthList<EforthCode> lst) 	{ pf2.addAll(lst); 	return this; }
 }

@@ -1,17 +1,17 @@
 import java.util.*;
 import java.io.*;
 
-public class Eforth_Core implements Runnable {				// ooeforth
+public class EforthCore implements Runnable {				// ooeforth
 	static final String VERSION = "ooeForth2.0";
 	static final String GREET   = "Thank you.";
-	Eforth_VM 	 vm;
+	EforthVM 	 vm;
 	InputStream  input;
 	PrintWriter  output;
 
-	Eforth_Core(InputStream in0, PrintWriter out0) { 
+	EforthCore(InputStream in0, PrintWriter out0) {
 		input  = in0;
 		output = out0;
-		vm     = new Eforth_VM(); 
+		vm     = new EforthVM(); 
 		vm.setOutput(out0);
 	}
 	/**
@@ -34,10 +34,9 @@ public class Eforth_Core implements Runnable {				// ooeforth
 	}
 
 	public static void main0(String args[]) {				// ooeforth 1.12
-		InputStream in  = System.in;
-		
-		try (PrintWriter out = new PrintWriter(System.out, true)) {
-			new Eforth_Core(in, out).run();
+		try (PrintWriter o = new PrintWriter(System.out, true)) {
+			new AwtTest();
+			//new EforthCore(in, out).run();
 		}
 		catch (Exception e) {}
 	}

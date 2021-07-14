@@ -241,20 +241,20 @@ public class EforthTing {	// ooeforth
 			dictionary.add(new Code("temp", false));					// CC:
 			});
 		put("else",c->{
-			Code last=dictionary.tail(2);
+			Code last=dictionary.tail(2).pf.tail();						// CC:4
 			Code temp=dictionary.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			last.pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.tail().struct=1;});
+			last.struct=1;});
 		put("then",c->{
-			Code last=dictionary.tail(2);
+			Code last=dictionary.tail(2).pf.tail();						// CC:4
 			Code temp=dictionary.tail();
-			if (last.pf.tail().struct==0) {
-				last.pf.tail().pf.addAll(temp.pf);
+			if (last.struct==0) {
+				last.pf.addAll(temp.pf);
 				dictionary.remove_tail();
 			} else {
-			last.pf.tail().pf1.addAll(temp.pf);
-			if (last.pf.tail().struct==1) {
+			last.pf1.addAll(temp.pf);
+			if (last.struct==1) {
 				dictionary.remove_tail();
 				}
 			else temp.pf.clear();
@@ -278,28 +278,28 @@ public class EforthTing {	// ooeforth
 			dictionary.add(new Code("temp", false));				// CC:
 			});
 		put("while",c->{
-			Code last=dictionary.tail(2);
+			Code last=dictionary.tail(2).pf.tail();					// CC:4
 			Code temp=dictionary.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			last.pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.tail().struct=2;});
+			last.struct=2;});
 		put("repeat",c->{
-			Code last=dictionary.tail(2);
+			Code last=dictionary.tail(2).pf.tail();
 			Code temp=dictionary.tail();
-			last.pf.tail().pf1.addAll(temp.pf);
+			last.pf1.addAll(temp.pf);
 			dictionary.remove_tail();
 			});
 		put("again",c->{
-			Code last=dictionary.tail(2);
+			Code last=dictionary.tail(2).pf.tail();
 			Code temp=dictionary.tail();
-			last.pf.tail().pf.addAll(temp.pf);
-			last.pf.tail().struct=1;
+			last.pf.addAll(temp.pf);
+			last.struct=1;
 			dictionary.remove_tail();
 			});
 		put("until",c->{
-			Code last=dictionary.tail(2);
+			Code last=dictionary.tail(2).pf.tail();
 			Code temp=dictionary.tail();
-			last.pf.tail().pf.addAll(temp.pf);
+			last.pf.addAll(temp.pf);
 			dictionary.remove_tail();
 			});
 		// for next
@@ -423,13 +423,10 @@ public class EforthTing {	// ooeforth
 			});
 		put("is",c->{  									// w -- , execute only
 			Code source=dictionary.get(stack.pop());	// source word
-			String s=in.next(); boolean found=false;
-			for (var w:dictionary) {
-				if (s.equals(w.name)) { 				// target word
-					Code target=dictionary.get(w.token); 
-					target.pf=source.pf; 				// copy pf 
-					found=true;break;}}
-			if (!found) output.append(s+" ?");
+			String str=in.next();
+			Code wx = dictionary.find(str, (s,w)->s.equals(w.name));	// CC:2
+			if (wx==null) output.append(str+" ?");
+			else dictionary.get(wx.token).pf = source.pf; 
 			});
 		// tools
 		put("here",c->{stack.push(Code.fence);});						// CC:

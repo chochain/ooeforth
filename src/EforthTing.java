@@ -1,22 +1,21 @@
 import java.util.*;
 import java.awt.*;
 import java.awt.event.*; 
-import java.awt.font.*; 
 import java.time.LocalTime;
-import java.util.function.Consumer;
+import java.util.function.*;
 
 public class EforthTing {	// ooeforth
 	static Scanner in;
 	static Stack<Integer> stack=new Stack<>();
 	static Stack<Integer> rstack=new Stack<>();
-	static ArrayList<Code> dictionary=new ArrayList<>();
+	static ForthList<Code> dictionary=new ForthList<>();
 	static boolean compiling=false;
 	static int base=10;
 	//static int fence=0;									// CC:
 	static int wp,ip;
 	static Frame frame = new Frame("ooeForth");
 	static TextArea input = new TextArea("words",10,50);
-	static TextArea output = new TextArea("ooeForth 2.02\n",10,55);
+	static TextArea output = new TextArea("ooeForth 2.02\n",10,80);
 	static void setup_dictionary() {
 		final String prim[]= {
 		":","dup","over","4dup","swap","rot","-rot","2swap","pick","roll",
@@ -39,12 +38,12 @@ public class EforthTing {	// ooeforth
 		System.out.println("ooeForth2.02\n");
 		setup_dictionary();
 		// GetKeyChar
-		Font font= new Font("Monospaced", Font.PLAIN, 12);
+		Font font = new Font("monospaced", Font.PLAIN, 20);
 		input.setFont(font);
 		output.setFont(font);
 		frame.add(input, BorderLayout.EAST);
 		frame.add(output, BorderLayout.WEST);
-		frame.setSize(800, 700);
+		frame.setSize(1600, 700);
 		frame.setVisible(true);
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent we) {
@@ -64,25 +63,19 @@ public class EforthTing {	// ooeforth
 	}
 	// outer interpreter
 		public static void outerInterpreter() {			// ooeforth 2.01
-		String idiom;
 		while(in.hasNext()) {  							// parse input
-			idiom=in.next();
-			Code newWordObject=null;
-			for (var w : dictionary) {  				// search dictionary
-				if (w.name.equals(idiom))
-				{newWordObject=w;break;};}
+			String idiom=in.next();
+			Code newWordObject=dictionary.find(idiom, (s,w)->s.equals(w.name));		// CC:2
 			if(newWordObject !=null) {  				// word found
 				if((!compiling) || newWordObject.immediate) {
 					try {newWordObject.xt(); } 			// execute
 					catch (Exception e) {output.append(e.toString());}}
 				else {  								// or compile
-					Code latestWord=dictionary.get(dictionary.size()-1);
-					latestWord.addCode(newWordObject);}}
+					dictionary.tail().addCode(newWordObject);}}						// CC:3
 			else { 
 				try {int n=Integer.parseInt(idiom, base); // not word, try number
 					if (compiling) {  					// compile integer literal
-						Code latestWord=dictionary.get(dictionary.size()-1);
-						latestWord.addCode(new Code("dolit",n));}
+						dictionary.tail().addCode(new Code("dolit",n));}			// CC:3
 					else { stack.push(n);}}				// or push number on stack
 				catch (NumberFormatException  ex) {		// catch number errors
 					output.append(idiom + "? ");
@@ -92,15 +85,30 @@ public class EforthTing {	// ooeforth
 		for(int n:stack) output.append(Integer.toString(n,base)+" ");
 		output.append(">ok\n");
 	}
+	static public class ForthList<T> extends ArrayList<T> {
+	    T head()		   { return get(0);                 }
+	    T tail()           { return get(size() - 1);        }
+	    T tail(int offset) { return get(size() - offset);   }
+	    T find(String str, BiPredicate<String, T> m) { 
+	    	for (int i=size()-1; i>=0; i--) {			// search array from tail to head
+	    		T w = get(i);
+	    		if (m.test(str, w)) return w;
+	    	}
+	    	return null;
+	    }
+	    ForthList<T> set_head(T w) { set(0, w);        return this; }
+	    ForthList<T> remove_head() { remove(0);        return this; }
+	    ForthList<T> remove_tail() { remove(size()-1); return this; }
+	}
 	// forth words constructor
 	static class Code {									// one size fits all objects
 		static int fence=0;										// CC:
 		public int token=0;
 		public String name;
-		public ArrayList<Code> pf=new ArrayList<>();
-		public ArrayList<Code> pf1=new ArrayList<>();
-		public ArrayList<Code> pf2=new ArrayList<>();
-		public ArrayList<Integer> qf=new ArrayList<>() ;
+		public ForthList<Code> pf=new ForthList<>();
+		public ForthList<Code> pf1=new ForthList<>();
+		public ForthList<Code> pf2=new ForthList<>();
+		public ForthList<Integer> qf=new ForthList<>() ;
 		public int struct=0;
 		public boolean immediate=false;
 		public String literal;
@@ -119,7 +127,7 @@ public class EforthTing {	// ooeforth
 				catch (ArithmeticException e) {}}
 			ip=rstack.pop(); wp=rstack.pop();}
 		}
-		public void addCode(Code w) { this.pf.add(w);}		
+		public Code addCode(Code w) { pf.add(w); return this; }					// CC:3		
 	}
 	static public HashMap<String, Consumer<Code>> lookUp=new HashMap<>() {{		// CC:
 		// stacks
@@ -186,18 +194,16 @@ public class EforthTing {	// ooeforth
 		// literals
 		put("[",c->{compiling=false;});
 		put("]",c->{compiling=true; });
-		put("'",c->{String s=in.next(); boolean found=false;
-			for (var w:dictionary) {
-				if (s.equals(w.name)) { stack.push(w.token); found=true;break;}}
-			if (!found) stack.push(-1);});
-		put("dolit",c->{	stack.push(c.qf.get(0));});			// integer literal
+		put("'",c->{String str=in.next();									
+			Code wx = dictionary.find(str, (s,w)->s.equals(w.name));		// CC:2
+			stack.push(wx==null ? -1 : wx.token);});						// CC:2
+		put("dolit",c->{	stack.push(c.qf.head());});		// integer literal
 		put("dostr",c->{	stack.push(c.token);});			// string literals
 		put("$\"",c->{ // -- w a
 			var d=in.delimiter();
 			in.useDelimiter("\"");			// need fix
 			String s=in.next();
-			Code last=dictionary.get(dictionary.size()-1);
-			last.addCode(new Code("dostr",s));			// literal=s
+			Code last=dictionary.tail().addCode(new Code("dostr",s));	// literal=s, CC:3
 			in.useDelimiter(d);in.next();
 			stack.push(last.token);stack.push(last.pf.size()-1);
 			});
@@ -206,8 +212,7 @@ public class EforthTing {	// ooeforth
 			var d=in.delimiter();
 			in.useDelimiter("\"");			// need fix
 			String s=in.next();
-			Code last=dictionary.get(dictionary.size()-1);
-			last.addCode(new Code("dotstr",s));		// literal=s
+			dictionary.tail().addCode(new Code("dotstr",s));		// literal=s, CC:3
 			in.useDelimiter(d);in.next();
 			});
 		put("(",c->{
@@ -232,26 +237,25 @@ public class EforthTing {	// ooeforth
 			else {for(var w:c.pf1) w.xt();}
 			});
 		put("if",c->{
-			Code last=dictionary.get(dictionary.size()-1);
-			last.addCode(new Code("branch", false));		// CC:		
-			dictionary.add(new Code("temp", false));		// CC:
+			dictionary.tail().addCode(new Code("branch", false));		// CC:, CC:3		
+			dictionary.add(new Code("temp", false));					// CC:
 			});
 		put("else",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
+			Code last=dictionary.tail(2);
+			Code temp=dictionary.tail();
+			last.pf.tail().pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.get(last.pf.size()-1).struct=1;});
+			last.pf.tail().struct=1;});
 		put("then",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			if (last.pf.get(last.pf.size()-1).struct==0) {
-				last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
-				dictionary.remove(dictionary.size()-1);
+			Code last=dictionary.tail(2);
+			Code temp=dictionary.tail();
+			if (last.pf.tail().struct==0) {
+				last.pf.tail().pf.addAll(temp.pf);
+				dictionary.remove_tail();
 			} else {
-			last.pf.get(last.pf.size()-1).pf1.addAll(temp.pf);
-			if (last.pf.get(last.pf.size()-1).struct==1) {
-				dictionary.remove(dictionary.size()-1);
+			last.pf.tail().pf1.addAll(temp.pf);
+			if (last.pf.tail().struct==1) {
+				dictionary.remove_tail();
 				}
 			else temp.pf.clear();
 			}});
@@ -270,34 +274,33 @@ public class EforthTing {	// ooeforth
 				if(stack.pop()!=0) break;}
 			}});
 		put("begin",c->{
-			Code last=dictionary.get(dictionary.size()-1);
-			last.addCode(new Code("loops", false));				// CC:
-			dictionary.add(new Code("temp", false));			// CC:
+			dictionary.tail().addCode(new Code("loops", false));	// CC:, CC:3
+			dictionary.add(new Code("temp", false));				// CC:
 			});
 		put("while",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
+			Code last=dictionary.tail(2);
+			Code temp=dictionary.tail();
+			last.pf.tail().pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.get(last.pf.size()-1).struct=2;});
+			last.pf.tail().struct=2;});
 		put("repeat",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			last.pf.get(last.pf.size()-1).pf1.addAll(temp.pf);
-			dictionary.remove(dictionary.size()-1);
+			Code last=dictionary.tail(2);
+			Code temp=dictionary.tail();
+			last.pf.tail().pf1.addAll(temp.pf);
+			dictionary.remove_tail();
 			});
 		put("again",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
-			last.pf.get(last.pf.size()-1).struct=1;
-			dictionary.remove(dictionary.size()-1);
+			Code last=dictionary.tail(2);
+			Code temp=dictionary.tail();
+			last.pf.tail().pf.addAll(temp.pf);
+			last.pf.tail().struct=1;
+			dictionary.remove_tail();
 			});
 		put("until",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
-			dictionary.remove(dictionary.size()-1);
+			Code last=dictionary.tail(2);
+			Code temp=dictionary.tail();
+			last.pf.tail().pf.addAll(temp.pf);
+			dictionary.remove_tail();
 			});
 		// for next
 		put("cycles",c->{int i=0;
@@ -321,24 +324,23 @@ public class EforthTing {	// ooeforth
 					}}
 			});
 		put("for",c->{
-			Code last=dictionary.get(dictionary.size()-1);
-			last.addCode(new Code(">r", false));				// CC:
-			last.addCode(new Code("cycles", false));			// CC:
-			dictionary.add(new Code("temp", false));			// CC:
+			dictionary.tail()
+				.addCode(new Code(">r", false))				// CC:, CC:3
+				.addCode(new Code("cycles", false));		// CC:, CC:3
+			dictionary.add(new Code("temp", false));		// CC:
 			});
 		put("aft",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
+			Code last=dictionary.tail(2).pf.tail();			// CC:4
+			Code temp=dictionary.tail();
+			last.pf.addAll(temp.pf);
 			temp.pf.clear();
-			last.pf.get(last.pf.size()-1).struct=3;});
+			last.struct=3;});
 		put("next",c->{
-			Code last=dictionary.get(dictionary.size()-2);
-			Code temp=dictionary.get(dictionary.size()-1);
-			if (last.pf.get(last.pf.size()-1).struct==0) 
-				 last.pf.get(last.pf.size()-1).pf.addAll(temp.pf);
-			else last.pf.get(last.pf.size()-1).pf2.addAll(temp.pf);
-			dictionary.remove(dictionary.size()-1);
+			Code last=dictionary.tail(2).pf.tail();			// CC:4
+			Code temp=dictionary.tail();
+			if (last.struct==0) last.pf.addAll(temp.pf);
+			else last.pf2.addAll(temp.pf);
+			dictionary.remove_tail();
 			});
 		// defining words
 		put("exit",c->{throw new ArithmeticException(); });								// marker to exit interpreter
@@ -346,85 +348,78 @@ public class EforthTing {	// ooeforth
 		put(":",c->{         								// -- box
 			String s=in.next();
 			dictionary.add(new Code(s));
-			Code last=dictionary.get(dictionary.size()-1);
 			//last.token=fence++;							// CC:
 			compiling=true;
 			});
-		put(";",c->{         								
-			Code last=dictionary.get(dictionary.size()-1);
-			compiling=false;
-			});
-		put("docon",c->{stack.push(c.qf.get(0));});			// integer literal
-		put("dovar",c->{stack.push(c.token);});			// string literals
+		put(";",c->compiling=false);						// CC:
+		put("docon",c->{stack.push(c.qf.head());});			// integer literal
+		put("dovar",c->{stack.push(c.token);});				// string literals
 		put("create",c->{
 			String s=in.next();
 			dictionary.add(new Code(s));
-			Code last=dictionary.get(dictionary.size()-1);
+			Code last=dictionary.tail().addCode(new Code("dovar",0));	// CC:3
 			//last.token=fence++;							// CC:
-			last.addCode(new Code("dovar",0));
-			last.pf.get(0).token=last.token;
-			last.pf.get(0).qf.remove(0);
+			last.pf.head().token=last.token;
+			last.pf.head().qf.remove_head();
 			});
 		put("variable",c->{ 
 			String s=in.next();
 			dictionary.add(new Code(s));
-			Code last=dictionary.get(dictionary.size()-1);
+			Code last=dictionary.tail().addCode(new Code("dovar",0));	// CC:3
 			//last.token=fence+;							// CC:
-			last.addCode(new Code("dovar",0));
-			last.pf.get(0).token=last.token;
+			last.pf.head().token=last.token;
 			});
 		put("constant",c->{  // n --
 			String s=in.next();
 			dictionary.add(new Code(s));
-			Code last=dictionary.get(dictionary.size()-1);
+			Code last=dictionary.tail().addCode(new Code("docon",stack.pop()));	// CC:3
 			//last.token=fence++;							// CC:
-			last.addCode(new Code("docon",stack.pop()));
-			last.pf.get(0).token=last.token;
+			last.pf.head().token=last.token;
 			});
 		put("@",c->{  // w -- n
 			Code last=dictionary.get(stack.pop());
-			stack.push(last.pf.get(0).qf.get(0));
+			stack.push(last.pf.head().qf.head());
 			});
 		put("!",c->{  // n w -- 
 			Code last=dictionary.get(stack.pop());
-			last.pf.get(0).qf.set(0,stack.pop());
+			last.pf.head().qf.set_head(stack.pop());
 			});
 		put("+!",c->{  // n w -- 
 			Code last=dictionary.get(stack.pop());
-			int n=last.pf.get(0).qf.get(0); n+=stack.pop();
-			last.pf.get(0).qf.set(0,n);
+			int n=last.pf.head().qf.head(); n+=stack.pop();
+			last.pf.head().qf.set_head(n);
 			});
 		put("?",c->{  // w -- 
 			Code last=dictionary.get(stack.pop());
-			output.append(Integer.toString(last.pf.get(0).qf.get(0)));
+			output.append(Integer.toString(last.pf.head().qf.head()));
 			});
 		put("array@",c->{  // w a -- n
 			int a=stack.pop();
 			Code last=dictionary.get(stack.pop());
-			stack.push(last.pf.get(0).qf.get(a));
+			stack.push(last.pf.head().qf.get(a));
 			});
 		put("array!",c->{  // n w a -- 
 			int a=stack.pop();
 			Code last=dictionary.get(stack.pop());
-			last.pf.get(0).qf.set(a,stack.pop());
+			last.pf.head().qf.set(a,stack.pop());
 			});
 		put(",",c->{ // n --
-			Code last=dictionary.get(dictionary.size()-1);
-			last.pf.get(0).qf.add(stack.pop());
+			Code last=dictionary.tail();
+			last.pf.head().qf.add(stack.pop());
 			});
 		put("allot",c->{  // n --
 			int n=stack.pop(); 
-			Code last=dictionary.get(dictionary.size()-1);
-			for(int i=0;i<n;i++) last.pf.get(0).qf.add(0);
+			Code last=dictionary.tail();
+			for(int i=0;i<n;i++) last.pf.head().qf.add(0);
 			});
 		put("does",c->{ // n --
-			Code last=dictionary.get(dictionary.size()-1);
+			Code last=dictionary.tail();
 			Code source=dictionary.get(wp);
 			last.pf.addAll(source.pf.subList(ip+2,source.pf.size()));
 			});
 		put("to",c->{  									// n -- , compile only 
 			Code last=dictionary.get(wp);	ip++;		// current colon word
-			last.pf.get(ip++).pf.get(0).qf.set(0,stack.pop());	// next constant
+			last.pf.get(ip++).pf.head().qf.set_head(stack.pop());	// next constant
 			});
 		put("is",c->{  									// w -- , execute only
 			Code source=dictionary.get(stack.pop());	// source word
@@ -437,20 +432,18 @@ public class EforthTing {	// ooeforth
 			if (!found) output.append(s+" ?");
 			});
 		// tools
-		put("here",c->{stack.push(Code.fence);});					// CC:
+		put("here",c->{stack.push(Code.fence);});						// CC:
 		put("words",c->{int i=0;for (var word:dictionary) {
 			output.append(word.name + word.token+" ");i++;
 			if (i>10) {output.append("\n");i=0;}}});
 		put(".s",c->{for(int n:stack) output.append(Integer.toString(n,base)+" ");});
-		put("see",c->{String s=in.next(); boolean found=false;
-			for (var word:dictionary) {
-				if (s.equals(word.name)) { 
-					output.append(word.name+", "+word.token+", "+word.qf.toString());
-					for( var w:word.pf) output.append(w.name+", "+w.token+", "+w.qf.toString()+"| ");       
-					found=true; break;}
-			}
-			if (!found) output.append(s+" ?");
-			});
+		put("see",c->{String str=in.next();								// CC:2
+			Code wx = dictionary.find(str, (s, w)->s.equals(w.name));
+			if (wx==null) output.append(str+" ?");
+			else {
+				output.append(wx.name+", "+wx.token+", "+wx.qf.toString());
+				for(var w:wx.pf) output.append(w.name+", "+w.token+", "+w.qf.toString()+"| ");
+			}});
 		put("time",c->{
 			LocalTime now=LocalTime.now();
 			output.append(now.toString());});

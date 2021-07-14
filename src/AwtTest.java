@@ -1,31 +1,35 @@
 import java.awt.*; 
 import java.awt.event.*;
 import java.util.*;
+import java.io.*;
 
 public class AwtTest
 {  
-	Frame    frame 	= new Frame("ooeForth");
-	TextArea input  = new TextArea("input");
-	TextArea output = new TextArea("output");
-
+	Frame    frm   = new Frame("ooeForth");
+	TextArea ta_i  = new TextArea("words");
+	TextArea ta_o  = new TextArea("");
     AwtTest() {
-    	frame.add(input,  BorderLayout.NORTH);
-    	frame.add(output, BorderLayout.SOUTH);
-    	frame.setSize(400, 400);
-    	frame.setVisible(true);
+    	ta_i.setFont(new Font("monospaced", Font.PLAIN, 20));
+    	ta_i.setPreferredSize(new Dimension(800, 100));
+    	ta_o.setFont(new Font("monospaced", Font.PLAIN, 20));
+    	ta_o.setPreferredSize(new Dimension(800, 700));
+    	frm.add(ta_i, BorderLayout.NORTH);
+    	frm.add(ta_o, BorderLayout.SOUTH);
+    	frm.setSize(840, 800);
+    	frm.setVisible(true);
 
-    	frame.addWindowListener(new WindowAdapter() {
+    	frm.addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent we) {
                 System.exit(0);
             }
         });
-    	input.addKeyListener(new KeyAdapter() {
+    	ta_i.addKeyListener(new KeyAdapter() {
             public void keyTyped(KeyEvent ke) {
                 char keyChar = ke.getKeyChar();
                 if (keyChar <= 13) {
-                    Scanner in = new Scanner(input.getText());
-                	output.append(">>"+in.nextLine());
-                	input.setText("");
+                    Scanner in = new Scanner(ta_i.getText());
+                	ta_o.append(">>" + in.nextLine());
+                	ta_i.setText("");
                 }
                 else {
                 	System.out.print(keyChar);
@@ -34,6 +38,6 @@ public class AwtTest
         });
     }
     public void print(String str) {
-    	output.append(str);
+    	ta_o.append(str);
     }
 }  

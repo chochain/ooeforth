@@ -49,6 +49,21 @@ public class EforthTing {    // ooeforth 2.03
                     in.close();
         }}});
     }
+    // VM execution unit
+    static public void exec(Code w) {
+        if (lookUp.containsKey(w.name)) {
+            lookUp.get(w.name).accept(w);             // run primitives words
+        }
+        else {
+            rstack.push(wp); rstack.push(ip);         // run colon words
+            wp=w.token; ip=0;                         // point to the word
+            for (Code wx:w.pf) {
+                try { exec(wx); ip++; }               // inner interpreter
+                catch (ArithmeticException e) {}
+            }
+            ip=rstack.pop(); wp=rstack.pop();
+        }
+    }
     // outer interpreter
     public static void outerInterpreter() {                 // ooeforth 2.01
         while(in.hasNext()) {                               // parse input
@@ -56,7 +71,7 @@ public class EforthTing {    // ooeforth 2.03
             Code newWordObject=dictionary.find(idiom,w->idiom.equals(w.name));     
             if(newWordObject !=null) {                      // word found
                 if((!compiling) || newWordObject.immediate) {
-                    try {newWordObject.xt(); }              // execute
+                    try {exec(newWordObject); }             // execute
                     catch (Exception e) {output.append(e.toString());}}
                 else {                                      // or compile
                     dictionary.tail().addCode(newWordObject);}}                     
@@ -87,7 +102,7 @@ public class EforthTing {    // ooeforth 2.03
         ForthList<T> remove_tail() { remove(size()-1); return this; }
     }
     // forth words constructor
-    static class Code {                                 // one size fits all objects
+    static class Code {                               // one size fits all objects
         static int fence=0;
         public int token=0;
         public String name;

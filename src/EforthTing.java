@@ -4,7 +4,7 @@ import java.awt.event.*;
 import java.time.LocalTime;
 import java.util.function.*;                                    
 
-public class EforthTing {    // ooeforth 2.03
+public class EforthTing {    // ooeforth 2.04
     static Scanner in; 
     static Stack<Integer> stack=new Stack<>();
     static Stack<Integer> rstack=new Stack<>();
@@ -14,7 +14,7 @@ public class EforthTing {    // ooeforth 2.03
     static int wp,ip;
     static Frame frame = new Frame("ooeForth");
     static TextArea input = new TextArea("words",10,50);
-    static TextArea output = new TextArea("ooeForth 2.03\n",10,80);
+    static TextArea output = new TextArea("ooeForth 2.04\n",10,80);
     static void setup_dictionary() {
         lookUp.forEach((k,v)->dictionary.add(new Code(k))); // create primitive words
         final String immd[]= {
@@ -45,24 +45,11 @@ public class EforthTing {    // ooeforth 2.03
                 if (keyChar <= 13) {
                     in = new Scanner(input.getText());
                     outerInterpreter();
+                    for(int n:stack) System.out.print(Integer.toString(n,base)+" ");
+                    System.out.print(">ok\n");
                     input.setText("");
                     in.close();
         }}});
-    }
-    // VM execution unit
-    static public void exec(Code w) {
-        if (lookUp.containsKey(w.name)) {
-            lookUp.get(w.name).accept(w);             // run primitives words
-        }
-        else {
-            rstack.push(wp); rstack.push(ip);         // run colon words
-            wp=w.token; ip=0;                         // point to the word
-            for (Code wx:w.pf) {
-                try { exec(wx); ip++; }               // inner interpreter
-                catch (ArithmeticException e) {}
-            }
-            ip=rstack.pop(); wp=rstack.pop();
-        }
     }
     // outer interpreter
     public static void outerInterpreter() {                 // ooeforth 2.01
@@ -71,7 +58,7 @@ public class EforthTing {    // ooeforth 2.03
             Code newWordObject=dictionary.find(idiom,w->idiom.equals(w.name));     
             if(newWordObject !=null) {                      // word found
                 if((!compiling) || newWordObject.immediate) {
-                    try {exec(newWordObject); }             // execute
+                    try {newWordObject.xt(); }              // execute
                     catch (Exception e) {output.append(e.toString());}}
                 else {                                      // or compile
                     dictionary.tail().addCode(newWordObject);}}                     
@@ -102,7 +89,7 @@ public class EforthTing {    // ooeforth 2.03
         ForthList<T> remove_tail() { remove(size()-1); return this; }
     }
     // forth words constructor
-    static class Code {                               // one size fits all objects
+    static class Code {                                 // one size fits all objects
         static int fence=0;
         public int token=0;
         public String name;
@@ -163,6 +150,7 @@ public class EforthTing {    // ooeforth 2.03
         put("or",c->stack.push(stack.pop()|stack.pop()));
         put("xor",c->stack.push(stack.pop()^stack.pop()));
         put("negate",c->stack.push(-stack.pop()));
+        put("abs",c->stack.push(Math.abs(stack.pop())));
         // logic
         put("0=",c->stack.push((stack.pop()==0)?-1:0));
         put("0<",c->stack.push((stack.pop()<0)?-1:0));
@@ -195,7 +183,8 @@ public class EforthTing {    // ooeforth 2.03
         put("]",c->compiling=true);
         put("'",c->{String s=in.next();
             Code w = dictionary.find(s, wx->s.equals(wx.name));     
-            stack.push(w==null ? -1 : w.token);});                  
+            if (w==null) throw new  NumberFormatException();                
+            stack.push(w.token);});                 
         put("dolit",c->stack.push(c.qf.head()));            // integer literal
         put("dostr",c->stack.push(c.token));                // string literal
         put("$\"",c->{ // -- w a
@@ -387,20 +376,25 @@ public class EforthTing {    // ooeforth 2.03
             Code source=dictionary.get(stack.pop());                // source word
             String s=in.next();
             Code w = dictionary.find(s, wx->s.equals(wx.name)); 
-            if (w==null) output.append(s+" ?");
-            else dictionary.get(w.token).pf = source.pf;});
+            if (w==null) throw new  NumberFormatException();                
+            dictionary.get(w.token).pf = source.pf;});
         // tools
-        put("here",c->{stack.push(Code.fence);});
-        put("words",c->{int i=0;for (var w:dictionary) {
+        put("here",c->{stack.push(dictionary.tail().token);});
+        put("boot",c->{for (int i=dictionary.tail().token;i>104;i--) dictionary.remove_tail();});
+        put("forget",c->{String s=in.next();
+            Code w = dictionary.find(s, wx->s.equals(wx.name)); 
+            if (w==null) throw new  NumberFormatException();                
+            for (int i=dictionary.tail().token;i>=Math.max(w.token,104);i--) dictionary.remove_tail();});
+        put("words",c->{int i=0;for (int j=1;j<=dictionary.tail().token+1;j++) {
+            var w = dictionary.tail(j);
             output.append(w.name+" "+w.token+" ");i++;
             if (i>9) {output.append("\n");i=0;}}});
         put(".s",c->{for(int n:stack) output.append(Integer.toString(n,base)+" ");});
         put("see",c->{String s=in.next();
             Code w = dictionary.find(s, wx->s.equals(wx.name)); 
-            if (w==null) output.append(s+" ?");
-            else {
-                output.append(w.name+", "+w.token+", "+w.qf.toString());
-                for(var wx:w.pf) output.append(wx.name+", "+wx.token+", "+wx.qf.toString()+"| ");}});
+            if (w==null) throw new  NumberFormatException();                
+            output.append(w.name+", "+w.token+", "+w.qf.toString());
+            for(var wx:w.pf) output.append(wx.name+", "+wx.token+", "+wx.qf.toString()+"| ");});
         put("time",c->{
             LocalTime now=LocalTime.now();
             output.append(now.toString());});

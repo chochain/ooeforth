@@ -1,0 +1,398 @@
+import java.util.*;
+import java.util.Scanner;
+import java.util.function.Supplier;
+
+abstract class Word {
+	String name;
+	abstract void xt();
+	public boolean immediate = false;
+	public Word(String name){this.name = name;}
+}
+
+public class Shawn103 {
+	static Scanner in;
+	static Stack<Integer> stack = new Stack<>();
+	static Stack<Integer> rstack = new Stack<>();
+	static HashMap<String, Supplier<Word>> lookUp = new HashMap<>();
+	static List<ForthWord> dictionary = new ArrayList<>();
+	static boolean compiling = false;
+	static int base = 10;
+/*
+ * 
+ * 1.
+ * I need a global flag 'compiling' to switch between the interpreter and compiler.
+ * Words have a local 'immediate' flag to get executed while compiling.
+ * 
+ * 
+ * 
+ */
+
+	public static void main(String args[]) {
+		// test interpreter 
+		System.out.println("Shawn104");
+		fillDictionary();
+		ForthWord colonWord = new ForthWord(":");
+		colonWord.addWord(new create());
+		colonWord.addWord(new ToCompile());
+		dictionary.add(colonWord);
+		ForthWord endWord = new ForthWord(";");
+		endWord.addWord(new ToInterpret());
+		endWord.immediate = true;
+		dictionary.add(endWord);
+		in = new Scanner(System.in);
+		String str;
+		while(!(str=in.next()).equals("bye")) {  // in.next() gets the next space-delimited word
+/*
+ * 
+ * 2.
+ * Why the next block would not run?
+ * I could not detect an empty line.
+ * (str=="") does not work.
+ * (str.length()==0) does not work.
+ * 
+ * 
+ */
+			// if the next token is a valid word, this will be nonNull
+			Word newWordObject = null;
+			if (lookUp.containsKey(str)) {
+				// forth word found in primitives list
+				// make a new word object (via .get()) corresponding to string
+				newWordObject = lookUp.get(str).get();
+			} else {
+				// search for Forth Word in dictionary
+				for (var word : dictionary) {
+					if (word.name.equals(str))
+						newWordObject = word;
+				}
+			}
+			// found, execute/compile forth word
+			if(newWordObject != null) {
+				if((!compiling) || newWordObject.immediate) {
+					newWordObject.xt();
+				}else{
+					ForthWord latestWord = dictionary.get(dictionary.size()-1);
+					latestWord.addWord(newWordObject);
+					// System.out.println("compile " + newWordObject.name + " to " + latestWord.name);
+				}
+			} else {
+				// is not word, see if is number
+				try {
+					if (compiling) {
+						ForthWord latestWord = dictionary.get(dictionary.size()-1);
+												latestWord.addWord(new DoLit());
+						//						latestWord.addWord(str);
+/*
+ * 
+ * 3.
+ * How do I compile an integer literal here?
+ * 
+ * 
+ */
+					}
+					else {
+						stack.push(Integer.parseInt(str, base));
+					}
+				} catch (NumberFormatException ex) {
+					System.out.println(str + " ?");
+					compiling = false;
+					stack.clear();
+				}
+			}
+		}
+		System.out.println("Thank you.");
+		in.close();
+	}
+
+	static void fillDictionary() {
+		// Many mistakes made here...
+		// Annoying to make sure everything matches up
+		lookUp.put("create", create::new);
+		lookUp.put("+", Plus::new);
+		lookUp.put("-", Minus::new);
+		lookUp.put("*", Mult::new);
+		lookUp.put("/", Div::new);
+		lookUp.put("mod", Mod::new);
+		lookUp.put("and", And::new);
+		lookUp.put("or", Or::new);
+		lookUp.put("xor", Xor::new);
+		lookUp.put("negate", Negate::new);
+		lookUp.put("dup", Dup::new);
+		lookUp.put("drop", Drop::new);
+		lookUp.put("swap", Swap::new);
+		lookUp.put("over", Over::new);
+		lookUp.put("2dup", Ddup::new);
+		lookUp.put("2drop", Ddrop::new);
+		lookUp.put("2swap", Dswap::new);
+		lookUp.put("2over", Dover::new);
+		lookUp.put("4dup", Qdup::new);
+		lookUp.put("nip", Nip::new);
+		lookUp.put("rot", Rot::new);
+		lookUp.put("-rot", Rrot::new);
+		lookUp.put("pick", Pick::new);
+		lookUp.put("roll", Roll::new);
+		lookUp.put(">r", Tor::new);
+		lookUp.put("r>", Rfrom::new);
+		lookUp.put("r@", Rat::new);
+		lookUp.put("<", Less::new);
+		lookUp.put("hex", Hex::new);
+		lookUp.put("decimal", Decimal::new);
+		lookUp.put("pi", Pi::new);
+		lookUp.put(".s", Show::new);
+		lookUp.put("words", Words::new);
+		lookUp.put("[", ToInterpret::new);
+		lookUp.put("]", ToCompile::new);
+		lookUp.put("greet", Greet::new);
+		lookUp.put("greet2", Greet2::new);
+	}
+
+	static class ForthWord extends Word{
+		private List<Word> words = new ArrayList<>();
+		private int data; // for words that have a DOES> clause
+		public ForthWord(String name){super(name);}
+		public void xt() {
+			for(var word : words)
+				word.xt();
+		}
+		public void addWord(Word w){
+			words.add(w);
+		}
+	}
+
+	static class create extends Word{
+		String wordName;
+		public create(){super("create");}
+		public void xt() {
+			wordName = in.next();
+			dictionary.add(new ForthWord(wordName));
+		}
+	}
+	static class Plus extends Word {
+		public Plus(){super("Plus");}
+		public void xt() { stack.push(stack.pop()+stack.pop()); }
+	}
+	static class Minus extends Word {
+		public Minus(){super("Minus");}
+		public void xt() { var n=stack.pop();stack.push(stack.pop()-n); }
+	}
+	static class Mult extends Word {
+		public Mult(){super("Mult");}
+		public void xt() { stack.push(stack.pop()*stack.pop()); }
+	}
+	static class Div extends Word {
+		public Div(){super("Div");}
+		public void xt() { var n=stack.pop();stack.push(stack.pop()/n); }
+	}
+	static class Mod extends Word {
+		public Mod(){super("mod");}
+		public void xt() { var n=stack.pop();stack.push(stack.pop()%n); }
+	}
+	static class And extends Word {
+		public And(){super("and");}
+		public void xt() { stack.push(stack.pop()&stack.pop()); }
+	}
+	static class Or extends Word {
+		public Or(){super("or");}
+		public void xt() { stack.push(stack.pop()|stack.pop()); }
+	}
+	static class Xor extends Word {
+		public Xor(){super("xor");}
+		public void xt() { stack.push(stack.pop()^stack.pop()); }
+	}
+	static class Negate extends Word {
+		public Negate(){super("negate");}
+		public void xt() { stack.push(-stack.pop()); }
+	}
+	static class Dup extends Word {
+		public Dup(){super("Dup");}
+		public void xt() { stack.push(stack.peek()); }
+	}
+	static class Drop extends Word {
+		public Drop(){super("Drop");}
+		public void xt() { stack.pop(); }
+	}
+	static class Swap extends Word {
+		public Swap(){super("Swap");}
+		public void xt() { stack.push(stack.remove(stack.size()-2)); }
+	}
+	static class Over extends Word {
+		public Over(){super("Over");}
+		public void xt() { stack.push(stack.get(stack.size()-2)); }
+	}
+	static class Rot extends Word {
+		public Rot(){super("Rot");}
+		public void xt() { stack.push(stack.remove(stack.size()-3)); }
+	}
+	static class Rrot extends Word {
+		public Rrot(){super("Rrot");}
+		public void xt() { stack.add(stack.size()-3,stack.pop()); }
+	}
+	static class Less extends Word {
+		public Less(){super("Less");}
+		public void xt() { var n=stack.pop();stack.push((stack.pop()<n)?-1:0); }
+	}
+	static class Pick extends Word {
+		public Pick(){super("Pick");}
+		public void xt() 
+		{ var n=stack.pop();stack.push(stack.get(stack.size()-n-1)); }
+	}
+	static class Ddup extends Word {
+		public Ddup(){super("2dup");}
+		public void xt() 
+		{ stack.addAll(stack.subList(stack.size()-2,stack.size()-1));}
+	}
+	static class Dover extends Word {
+		public Dover(){super("2over");}
+		public void xt() 
+		{ stack.addAll(stack.subList(stack.size()-4,stack.size()-3));}
+	}
+	static class Qdup extends Word {
+		public Qdup(){super("4dup");}
+		public void xt() 
+		{ stack.addAll(stack.subList(stack.size()-4,stack.size()-1));}
+	}
+	static class Dswap extends Word {
+		public Dswap(){super("2swap");}
+		public void xt() 
+		{ stack.push(stack.remove(stack.size()-4));stack.push(stack.remove(stack.size()-4));}
+	}
+	static class Roll extends Word {
+		public Roll(){super("roll");}
+		public void xt() 
+		{ int n=stack.pop();stack.push(stack.remove(stack.size()-n));}
+	}
+	static class Nip extends Word {
+		public Nip(){super("nip");}
+		public void xt() 
+		{ stack.remove(stack.size()-2);}
+	}
+	static class Ddrop extends Word {
+		public Ddrop(){super("2drop");}
+		public void xt() 
+		{ stack.pop();stack.pop();}
+	}
+	static class Tor extends Word {
+		public Tor(){super(">r");}
+		public void xt() 
+		{ rstack.push(stack.pop());}
+	}
+	static class Rfrom extends Word {
+		public Rfrom(){super("r>");}
+		public void xt() 
+		{ stack.push(rstack.pop());}
+	}
+	static class Rat extends Word {
+		public Rat(){super("r@");}
+		public void xt() 
+		{ stack.push(rstack.peek());}
+	}
+	static class Hex extends Word {
+		public Hex(){super("Hex");}
+		public void xt() { base = 16; }
+	}
+	static class Decimal extends Word {
+		public Decimal(){super("Decimal");}
+		public void xt() { base = 10; }
+	}
+	static class Pi extends Word {
+		public Pi(){super("Pi");}
+		public void xt() { stack.push(31416); }
+	}
+	static class Show extends Word {
+		public Show(){super("Show");}
+		public void xt() {
+			for(int i: stack) {
+				System.out.print(i+" ");		}
+		}
+	}
+	static class Words extends Word {
+		public Words(){super("Words");}
+		public void xt() {
+			for(var w: lookUp.keySet()) {
+				System.out.print(w + " ");		}
+			for (var word : dictionary) {
+				System.out.print(word.name + " ");		}
+		}
+	}
+	static class ToCompile extends Word {
+		public ToCompile(){super("ToCompile");
+		immediate = true;}
+		public void xt() { compiling = true; }
+	}
+	static class ToInterpret extends Word {
+		public ToInterpret(){super("ToInterpret");}
+		public void xt() { compiling = false; }
+	}
+	static class Greet extends Word {
+		public Greet(){super("Greet");}
+		public void xt() {
+			System.out.println("You will curse the day you did not do all that the Phantom asked of you!");
+		}
+	}
+
+	static class Greet2 extends Word {
+		public Greet2(){super("Greet2");}
+		public void xt() {
+			System.out.println("Promise me that all you say is true. That's all I ask of you.");
+
+			// And soon, you'll be beside me! You'll guard me and you'll guide me
+			// Say you'll share with me one love, one lifetime. Say the word and I will follow you
+
+			// What raging fire shall flood the soul?
+			// What rich desire unlocks its door?
+			// What sweet seduction lies before us?
+		}
+	}
+/*
+ * 
+ * 4.
+ * In a token list, tokens are compiled as Word objects.
+ * I have to embed:
+ * 	Integer literals with dolit.
+ * 	Address literals with branch, zbranch, and do next
+ * 	String literals with dostr and dotstr.
+ * 
+ * The compile has to compile them into token lists.
+ * The interpreter has to know how to extract the literals while running the token list.
+ * The token list may be terminated early by the 'exit' command.
+ * we may need to execute a token list with 'exec'.
+ * 
+ * 
+ */
+	// integer literal
+	static class DoLit extends Word {
+		public DoLit(){super("dolit");}
+		public void xt() { compiling = false; }
+	}
+	// address literal
+	static class Branch extends Word {
+		public Branch(){super("branch");}
+		public void xt() { compiling = false; }
+	}
+	static class Zbranch extends Word {
+		public Zbranch(){super("zbranch");}
+		public void xt() { compiling = false; }
+	}
+	static class DoNext extends Word {
+		public DoNext(){super("donext");}
+		public void xt() { compiling = false; }
+	}
+	// string literal
+	static class DoStr extends Word {
+		public DoStr(){super("dostr");}
+		public void xt() { compiling = false; }
+	}
+	static class DotStr extends Word {
+		public DotStr(){super("dotstr");}
+		public void xt() { compiling = false; }
+	}
+	// early exit of a token list
+	static class Exit extends Word {
+		public Exit(){super("exit");}
+		public void xt() { compiling = false; }
+	}
+	// enter a new token list or an object
+	static class Exec extends Word {
+		public Exec(){super("exec");}
+		public void xt() { compiling = false; }
+	}
+}

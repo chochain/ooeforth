@@ -1,0 +1,141 @@
+import java.util.*;
+import java.util.Scanner;
+
+interface Word {
+	public String getName();
+	public void xt();
+}
+
+public class Eforth102
+{
+	static Stack<Integer> stack = new Stack<>();
+	static Stack<Integer> rstack = new Stack<>();
+	static ArrayList<Word> dict = new ArrayList<>();
+	static int base = 10;
+	static class Plus implements Word {
+		public String getName() { return "+"; }
+		public void xt() { stack.push(stack.pop()+stack.pop()); }
+	}
+	static class Minus implements Word {
+		public String getName() { return "-"; }
+		public void xt() { var n=stack.pop();stack.push(stack.pop()-n); }
+	}
+	static class Mult implements Word {
+		public String getName() { return "*"; }
+		public void xt() { stack.push(stack.pop()*stack.pop()); }
+	}
+	static class Div implements Word {
+		public String getName() { return "/"; }
+		public void xt() { var n=stack.pop();stack.push(stack.pop()/n); }
+	}
+	static class Dup implements Word {
+		public String getName() { return "dup"; }
+		public void xt() { stack.push(stack.peek()); }
+	}
+	static class Drop implements Word {
+		public String getName() { return "drop"; }
+		public void xt() { stack.pop(); }
+	}
+	static class Swap implements Word {
+		public String getName() { return "swap"; }
+		public void xt() { stack.push(stack.remove(stack.size()-2)); }
+	}
+	static class Over implements Word {
+		public String getName() { return "over"; }
+		public void xt() { stack.push(stack.get(stack.size()-2)); }
+	}
+	static class Rot implements Word {
+		public String getName() { return "rot"; }
+		public void xt() { stack.push(stack.remove(stack.size()-3)); }
+	}
+	static class Rrot implements Word {
+		public String getName() { return "-rot"; }
+		public void xt() { stack.add(stack.size()-3,stack.pop()); }
+	}
+	static class Less implements Word {
+		public String getName() { return "<"; }
+		public void xt() { var n=stack.pop();stack.push((stack.pop()<n)?-1:0); }
+	}
+	static class Pick implements Word {
+		public String getName() { return "pick"; }
+		public void xt() { var n=stack.pop();stack.push(stack.get(stack.size()-n-1)); }
+	}
+	static class Hex implements Word {
+		public String getName() { return "hex"; }
+		public void xt() { base = 16; }
+	}
+	static class Decimal implements Word {
+		public String getName() { return "decimal"; }
+		public void xt() { base = 10; }
+	}
+	static class Pi implements Word {
+		public String getName() { return "pi"; }
+		public void xt() { stack.push(31416); }
+	}
+	static class Show implements Word {
+		public String getName() { return "show"; }
+		public void xt() { 
+			System.out.println(" ");
+			for(int i: stack) {
+				System.out.print(i+" ");		}
+		}
+	}
+	static class Words implements Word {
+		public String getName() { return "words"; }
+		public void xt() { 
+			System.out.println(" ");
+			for(Word w: dict) {
+				System.out.print(w.getName()+" ");		}
+		}
+	}
+
+	public static void main(String args[])
+	{
+		// compile primitives
+		Plus plus = new Plus(); dict.add(plus);
+		Minus minus = new Minus(); dict.add(minus);
+		Mult mult = new Mult(); dict.add(mult);
+		Div div = new Div(); dict.add(div);
+		Dup dup = new Dup(); dict.add(dup);
+		Drop drop = new Drop(); dict.add(drop);
+		Swap swap = new Swap(); dict.add(swap);
+		Over over = new Over(); dict.add(over);
+		Rot rot = new Rot(); dict.add(rot);
+		Rrot rrot = new Rrot(); dict.add(rrot);
+		Less less = new Less(); dict.add(less);
+		Pick pick = new Pick(); dict.add(pick);
+		Hex hex = new Hex(); dict.add(hex);
+		Decimal decimal = new Decimal(); dict.add(decimal);
+		Pi pi = new Pi(); dict.add(pi);
+		Show show = new Show(); dict.add(show);
+		Words words = new Words(); dict.add(words);
+		// test interpreter 
+		System.out.println("javaforth1.02");
+		String str=""; Scanner in = new Scanner(System.in);
+		while(!str.equals("bye")) { //Get input String
+			str = in.nextLine();
+			if (str.length()>0) {
+			String[] string =str.split(" "); 
+			for( String s: string) {
+				boolean b = true;
+				for( Word w: dict) { 
+					if (w.getName().equals(s)) {
+						b = false;
+						w.xt(); break;
+					}
+				}
+				if (b) { 
+					try {stack.push(Integer.parseInt(s,base));} 
+					catch (NumberFormatException ex) {
+						System.out.println(s+"?");stack.clear();break;}
+				}	
+			} }
+			System.out.print("< ");
+			for(int i: stack) {
+				System.out.print(i+" ");		}
+			System.out.println(">ok");
+		} 
+		System.out.println("Thank you.");
+		in.close();
+	}
+}

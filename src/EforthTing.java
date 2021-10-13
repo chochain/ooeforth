@@ -7,9 +7,9 @@ import java.util.List;
 
 public class EforthTing {
     final static String VERSION="2.06";
-    static final Font font = new Font("Monospaced", Font.PLAIN, 14);
+    static final Font font = new Font("Monospaced", Font.PLAIN, 12);
     static TextArea input  = new TextArea("words",10,50);
-    static TextArea output = new TextArea("ooeForth "+VERSION+"\n",10,80);
+    static TextArea output = new TextArea("ooeForth "+VERSION+"\n",10,50);
     static Frame frame = new Frame("ooeForth v"+VERSION);
     static Scanner in;
     static Stack<Integer>  ss   = new Stack<>();
@@ -100,25 +100,25 @@ public class EforthTing {
         String s=in.next();   in.useDelimiter(d); in.next();// restore delimiter
         return s;}
     static public ForthList<Code> primitives = new ForthList<>(Arrays.asList(
+        // Stack ops
         new Code("dup",  c->ss.push(ss.peek())),
-        new Code("over", c->ss.push(ss.get(ss.size()-2))),
-        new Code("2dup", c->ss.addAll(ss.subList(ss.size()-2,ss.size()))),
-        new Code("2over",c->ss.addAll(ss.subList(ss.size()-4,ss.size()-2))),
-        new Code("4dup", c->ss.addAll(ss.subList(ss.size()-4,ss.size()))),
+        new Code("drop", c->ss.pop()),
         new Code("swap", c->ss.add(ss.size()-2,ss.pop())),
+        new Code("over", c->ss.push(ss.get(ss.size()-2))),
         new Code("rot",  c->ss.push(ss.remove(ss.size()-3))),
         new Code("-rot", c->{ss.push(ss.remove(ss.size()-3));ss.push(ss.remove(ss.size()-3));}),
-        new Code("2swap",c->{ss.push(ss.remove(ss.size()-4));ss.push(ss.remove(ss.size()-4));}),
-        new Code("pick", c->{int i=ss.pop();int n=ss.get(ss.size()-i-1);ss.push(n);}),
         new Code("roll", c->{int i=ss.pop();int n=ss.remove(ss.size()-i-1);ss.push(n);}),
-        new Code("drop", c->ss.pop()),
+        new Code("pick", c->{int i=ss.pop();int n=ss.get(ss.size()-i-1);ss.push(n);}),
         new Code("nip",  c->ss.remove(ss.size()-2)),
-        new Code("2drop",c->{ss.pop();ss.pop();}),
         new Code(">r",   c->rs.push(ss.pop())),
         new Code("r>",   c->ss.push(rs.pop())),
         new Code("r@",   c->ss.push(rs.peek())),
-        new Code("push", c->rs.push(ss.pop())),
-        new Code("pop",  c->ss.push(rs.pop())),
+		// stack ops
+        new Code("2dup", c->ss.addAll(ss.subList(ss.size()-2,ss.size()))),
+        new Code("2over",c->ss.addAll(ss.subList(ss.size()-4,ss.size()-2))),
+        new Code("2swap",c->{ss.push(ss.remove(ss.size()-4));ss.push(ss.remove(ss.size()-4));}),
+        new Code("2drop",c->{ss.pop();ss.pop();}),
+        new Code("4dup", c->ss.addAll(ss.subList(ss.size()-4,ss.size()))),
         // math
         new Code("+",    c->ss.push(ss.pop()+ss.pop())),
         new Code("-",    c->{int n=ss.pop();ss.push(ss.pop()-n);}),
@@ -272,6 +272,7 @@ public class EforthTing {
             String s=in.next(); dict.add(new Code(s));
             Code last=dict.tail().addCode(new Code("docon",ss.pop()));
             last.pf.head().token=last.token;}),
+		// memory access
         new Code("@",c->{  // w -- n
             Code last=dict.get(ss.pop());
             ss.push(last.pf.head().qf.head());}),
@@ -300,6 +301,7 @@ public class EforthTing {
             int n=ss.pop();
             Code last=dict.tail();
             for(int i=0;i<n;i++) last.pf.head().qf.head();}),
+        // metacompiler
         new Code("create",c->{
             String s=in.next(); dict.add(new Code(s));               // create variable
             Code last=dict.tail().addCode(new Code("dovar",0));

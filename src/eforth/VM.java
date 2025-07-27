@@ -47,6 +47,12 @@ public class VM {
         }
         return null;                                    ///> * return null if not found
     }
+    private Code find_next() {
+        String s = tok.nextToken();
+        var    w = find(s);
+        if (w==null) out.printf(s+" ?");
+        return w;
+    }
     ///
     ///> xt - Forth execution unit, execute a given Code
     ///    @param w Code to be executed
@@ -66,7 +72,7 @@ public class VM {
         }
         else {                                          ///> in interpreter mode
             out.println();                              ///> * dump stack contents, and
-            for (int n:ss) out.print(Integer.toString(n, base)+" ");
+            for (int n : ss) out.print(Integer.toString(n, base)+" ");
             out.print("OK "); out.flush();              ///> * OK prompt
         }
         return run;
@@ -83,16 +89,20 @@ public class VM {
             String idiom = tok.nextToken().trim();      ///> fetch next token
 
             Code w = find(idiom);                       ///> search dictionary
+            out.print("idiom="+idiom);
+
             if (w != null) {                            ///> if word found
+                out.println(" >> "+w);
                 if (!comp || w.immd) {                  ///> * check whether in immediate mode 
                     try                 { xt(w);        }    ///> execute immediately
                     catch (Exception e) { out.print(e); }    /// just-in-case it failed
                 }
-                else _colon_add(w);                      ///> * add to dictionary if in compile mode
+                else dict.tail().pf.add(w);              ///> * add to dictionary if in compile mode
             }
             else {                                       ///> when word not found
                 try {
                     int n=Integer.parseInt(idiom, base); ///> * try process as a number
+                    out.println(" >> "+n);
                     if (comp) {                          ///>> in compile mode 
                         dict.tail().pf.add(
                             new Code("dolit", n));       ///>> append literal to latest defined word
@@ -116,8 +126,9 @@ public class VM {
         rs.push(ip);
         wp = colon_w.idx;                                /// wp points to current colon object
         ip = 0;                
-        for (var w:colon_w.pf) {                         /// inner interpreter
-            try { 
+        for (var w : colon_w.pf) {                       /// inner interpreter
+            try {
+                out.println("ip:"+ip + " " + w.name);
                 xt(w); 
                 ip++; 
             } 
@@ -148,12 +159,13 @@ public class VM {
             "for",   "next",  "aft",
             ";",    "$\"",    ".\"",  "(",    "\\"    
         };
-        for (String s: immd)  {    
+        for (String s : immd)  {
             // dict.add(new Code(s).immediate());
             find(s).immediate();
         }
     }
     final LinkedHashMap<String, Consumer<Code>> _vtable = new LinkedHashMap<>() {{
+        put( "bye",   c -> run = false );
         /// stack ops
         put( "dup",   c -> ss.push(ss.peek())               );
         put( "over",  c -> ss.push(ss.get(ss.size()-2))     );
@@ -213,30 +225,30 @@ public class VM {
         put( "cr",    c -> out.println()           );
         put( ".",     c -> out.print(Integer.toString(ss.pop(), base)+" ") );
         put( ".r",    c -> { 
-            int n=ss.pop();
-            String s=Integer.toString(ss.pop(), base);
-            for (int i=0; i+s.length()<n; i++) out.print(" ");
+            int    n = ss.pop();
+            String s = Integer.toString(ss.pop(), base);
+            for (int i=0; i+s.length() < n; i++) out.print(" ");
             out.print(s+" ");
         });
         put( "u.r",   c -> {
-            int n=ss.pop();
-            String s=Integer.toString(ss.pop()&0x7fffffff, base);
-            for (int i=0;i+s.length()<n; i++) out.print(" ");
+            int    n = ss.pop();
+            String s = Integer.toString(ss.pop()&0x7fffffff, base);
+            for (int i=0; i+s.length() < n; i++) out.print(" ");
             out.print(s+" ");
         });
         put( "key",   c -> ss.push((int)tok.nextToken().charAt(0)) );
         put( "emit",  c -> out.print(Character.toChars(ss.pop()))  );
         put( "space", c -> out.print(" ")                          );
         put( "spaces",c -> {
-            int n=ss.pop();
-            for (int i=0; i<n; i++) out.print(" ");
+            int n = ss.pop();
+            for (int i=0; i < n; i++) out.print(" ");
         });
         /// Compiler words
         put( "[",     c -> comp = false         );
         put( "]",     c -> comp = true          );
         put( "'",     c -> { 
-            var  w = find(tok.nextToken());
-            ss.push(w==null ? -1 : w.idx);
+            var w = find_next();
+            if (w!=null) ss.push(w.idx);
         });
         /// Primitives
         put( "dolit", c -> ss.push(c.qf.head()) );            /// integer literal
@@ -267,11 +279,11 @@ public class VM {
         put( "\\",    c -> tok.nextToken("\n"));
         /// Branching - if else then
         put( "branch",c -> {
-            for (var w: (ss.pop()!=0 ? c.pf : c.p1)) xt(w);
+            for (var w : (ss.pop()!=0 ? c.pf : c.p1)) xt(w);
         });
         put( "if",    c -> { 
             _colon_add(new Code("branch", false));            /// literal=s
-            dict.add(new Code("temp"));
+            dict.add(new Code(" tmp"));
         });
         put( "else",  c -> {
             var temp = dict.tail(1);
@@ -295,31 +307,31 @@ public class VM {
             }
         });
         /// Loop - begin-while-repeat again
-        put( "loops", c -> {
+        put( "loop", c -> {
             switch (c.stage) {
             case 1:        /// again 
                 while (true) {
-                    for (var w: c.pf) xt(w);
+                    for (var w : c.pf) xt(w);
                 }
                 /// never comes here?
                 /// break;
             case 2:        /// repeat
                 while (true) {
-                    for (var w: c.pf) xt(w);
+                    for (var w : c.pf) xt(w);
                     if (ss.pop()==0) break;
-                    for (var w: c.p1) xt(w);
+                    for (var w : c.p1) xt(w);
                 }
                 break;
             default:       /// until
                 while (true) {
-                    for (var w: c.pf) xt(w);
+                    for (var w : c.pf) xt(w);
                     if (ss.pop()!=0) break;
                 }
             }
         });
         put( "begin", c -> { 
-            _colon_add(new Code("loops"));
-            dict.add(new Code("temp"));
+            _colon_add(new Code("loop"));
+            dict.add(new Code(" tmp"));
         });
         put( "while", c -> {
             var temp = dict.tail();
@@ -348,27 +360,27 @@ public class VM {
             int i=0;
             if (c.stage==0) {
                 while(true){
-                    for (var w: c.pf) xt(w);
+                    for (var w : c.pf) xt(w);
                     i=rs.pop();
                     if (--i<0) break;
                     rs.push(i);
                 }
             } 
             else {
-                for (var w:c.pf) xt(w);
+                for (var w :c.pf) xt(w);
                 while (true) {
-                    for (var w: c.p2) xt(w);
+                    for (var w : c.p2) xt(w);
                     i = rs.pop();
                     if (--i<0) break;
                     rs.push(i);
-                    for (var w: c.p1) xt(w);
+                    for (var w : c.p1) xt(w);
                 }
             }
         });
         put( "for",  c -> {
             _colon_add(new Code(">r"));
             _colon_add(new Code("cycles"));
-            dict.add(new Code("temp"));
+            dict.add(new Code(" tmp"));
         });
         put( "aft",  c -> {
             var temp = dict.tail();
@@ -450,7 +462,7 @@ public class VM {
         put( "allot",c -> {                                        /// n --
             int n = ss.pop(); 
             var last = dict.tail();
-            for (int i=0;i<n;i++) last.pf.head().qf.add(0);
+            for (int i=0; i < n; i++) last.pf.head().qf.add(0);
         });
         put( "does", c -> {                                        /// n --
             var last = dict.tail();
@@ -458,16 +470,12 @@ public class VM {
             last.pf.addAll(src.pf.subList(ip+2, src.pf.size()));
         });
         put( "to",   c -> {                                        /// n -- , compile only
-            var  w = find(tok.nextToken());
-            if (w==null) throw new  NumberFormatException();
-            dict.get(w.idx).pf.head().qf.set_head(ss.pop());
+            var w = find_next();
+            if (w!=null) dict.get(w.idx).pf.head().qf.set_head(ss.pop());
         });
         put( "is",   c -> {                                        /// w -- , execute only
-            String s = tok.nextToken(); 
-            var    w = find(s);
-
-            if (w==null) out.print(s+" ?");
-            else {
+            var w = find_next();
+            if (w!=null) {
                 var src = dict.get(ss.pop());                      /// source word
                 dict.get(w.idx).pf = src.pf; 
             }
@@ -476,7 +484,7 @@ public class VM {
         put( "here",  c -> ss.push(Code.fence) );
         put( "words", c -> { 
             int i=0, sz = 0; 
-            for (var w: dict) {
+            for (var w : dict) {
                 out.print(w.name + "  ");
                 sz += w.name.length() + 2;                         /// width control
                 if (sz > 64) {
@@ -485,14 +493,12 @@ public class VM {
                 }
             }
         });
-        put( ".s",    c -> { for (int n:ss) out.print(Integer.toString(n, base)+" "); });
-        put( "see",   c -> { 
-            String s = tok.nextToken();
-            var    w = find(s);
-            if (w==null) out.print(s+" ?");
-            else {
+        put( ".s",    c -> { for (int n : ss) out.print(Integer.toString(n, base)+" "); });
+        put( "see",   c -> {
+            var w = find_next();
+            if (w!=null) {
                 out.println(w.name+", "+w.idx+", "+w.qf.toString());
-                for (var p: w.pf) out.print(p.name+", "+p.idx+", "+p.qf.toString()+"| ");       
+                for (var p : w.pf) out.print(p.name+", "+p.idx+", "+p.qf.toString()+"| ");       
             }
         });
         put( "clock", c -> { ss.push((int)System.currentTimeMillis()); });
@@ -504,6 +510,17 @@ public class VM {
             LocalTime now = LocalTime.now();
             out.println(now); 
         });
-        put( "bye",   c -> run = false );
+        put( "forget", c -> {
+            var m = find("boot");
+            var w = find_next();
+            if (w!=null) {
+                int t = Math.max(w.idx : m.idx + 1);
+                dict.subList(t, dict.size()).clear();
+            }
+        });
+        put( "boot",   c -> {
+            int t = find("boot").idx + 1;
+            for (int i=(int)dict.size(); i > t; i--) dict.drop_tail();
+        });
     }};
 }

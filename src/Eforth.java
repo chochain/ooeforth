@@ -6,25 +6,25 @@ import java.util.*;
 import java.io.*;
 import eforth.*;
 
-public class Eforth implements Runnable {                       /// ooeforth
+public class Eforth implements Runnable {                   /// ooeforth
     static final String VERSION = "ooeForth2.0";
     static final String GREET   = "Thank you.";
-    VM           vm;
-    InputStream  input;
-    PrintWriter  output;
+    InputStream  input;                                     ///< console input
+    PrintWriter  output;                                    ///< console output
+    VM           vm;                                        ///< eForth virtual machine
 
-    Eforth(InputStream in0, PrintStream out0) {
-        input  = in0;
-        output = new PrintWriter(out0, true);
+    Eforth(InputStream in, PrintStream out) {
+        input  = in;
+        output = new PrintWriter(out, true);
         vm     = new VM();
-        vm.setOutput(output);
+        vm.setOutput(output);                               ///< pipe output stream
     }
     
     public void run() {
-        try (Scanner sc = new Scanner(input)) {                /// auto close
+        try (Scanner cin = new Scanner(input)) {            ///< auto close
             output.println(VERSION);
             while (vm.ok()) {
-                String tib = sc.nextLine();
+                String tib = cin.nextLine();
                 vm.parse(tib);
             }
         }

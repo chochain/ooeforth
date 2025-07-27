@@ -288,7 +288,7 @@ public class EforthVM {
 
 		// structure: if else then
 		put( "branch",c -> {
-			for (var w: (ss.pop()!=0 ? c.pf : c.pf1)) xt(w);
+			for (var w: (ss.pop()!=0 ? c.pf : c.p1)) xt(w);
 		});
 		put( "if",    c -> { 
 			_colon_add(new EforthCode("branch", false));						// literal=s
@@ -328,7 +328,7 @@ public class EforthVM {
 				while (true) {
 					for (var w: c.pf) xt(w);
 					if (ss.pop()==0) break;
-					for (var w: c.pf1) xt(w);
+					for (var w: c.p1) xt(w);
 				}
 				break;
 			default:	// until
@@ -378,11 +378,11 @@ public class EforthVM {
 			else {
 				for (var w:c.pf) xt(w);
 				while (true) {
-					for (var w: c.pf2) xt(w);
+					for (var w: c.p2) xt(w);
 					i = rs.pop();
 					if (--i<0) break;
 					rs.push(i);
-					for (var w: c.pf1) xt(w);
+					for (var w: c.p1) xt(w);
 				}
 			}
 		});
@@ -480,9 +480,9 @@ public class EforthVM {
 			last.pf.addAll(src.pf.subList(ip+2, src.pf.size()));
 		});
 		put( "to",   c -> {   										// n -- , compile only 
-			var last = dict.get(wp);
-			ip++;													// current colon word
-			last.pf.get(ip++).pf.head().qf.set_head(ss.pop());		// next constant
+            Code w = dict.find(s, wx->s.equals(wx.name));
+            if (w==null) throw new  NumberFormatException();
+            dict.get(w.idx).pf.head().qf.set_head(ss.pop());
 		});
 		put( "is",   c -> {   										// w -- , execute only
 			String s = tok.nextToken(); 

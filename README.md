@@ -12,11 +12,13 @@ The project has been in frozen state since his passing late May 2022 and I've wo
 
 ## Build & Run
 ### Dr. Ting's style
-javac -d tests src/EforthTing.java
-java -cp tests EforthTing
+
+    javac -d tests src/EforthTing.java
+    java -cp tests EforthTing
 
 ### Modularization - Work in Progress
-javac -sourcepath src -d tests src/Eforth.java
+
+    javac -sourcepath src -d tests src/Eforth.java
 
 ## TODO
 * embedded

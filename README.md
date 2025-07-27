@@ -1,4 +1,19 @@
 # ooeforth
 ## eForth in Java
-* src/EforthTing.java is the source combined in one file delivered to Dr. Ting
-* shared source with Dr. Ting in ~/orig
+Dr. Ting has been an influential figure in Forth community. He was the key person who brought Bill Munich's eForth into many platforms.
+
+When I demonstrated that high-level languages such as C++, Java, even Javascript can also construct Forth dictionary without meta-compilation as were done in classic Forths, he got very excited. He stated that Forth can finally be built without bootstrapping from lower-level Forth scripts and termed the paradigm "Forth without Forth".
+
+Taking the template I sent, Dr. Ting single-handily completed several versions of ooeForth which I kept in ~/orig directory. 
+
+Dr. Ting has a peculiar interest in minimizing program line count and to keep his code packed without spacing. Though personally cared much more for readability and modularization, respect his preference, I gathered all the input into one file i.e. src/EforthTing.java. He proudly gave a presentation on Silicon Valley Forth Interest Group 2021 July meeting of his development.
+
+The project has been in frozen state since his passing late May 2022 and I've wondered into other spaces. Not until recently, late July 2025, I took notice that it might needs some maintenance. So, here we are.
+
+## Build & Run
+### Dr. Ting's style
+javac -d tests src/EforthTing.java
+java -cp tests EforthTing
+
+### Modularization - Work in Progress
+javac -sourcepath src -d tests src/Eforth.java

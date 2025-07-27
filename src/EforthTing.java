@@ -7,9 +7,9 @@ import java.util.List;
 
 public class EforthTing {
     final static String VERSION="2.06";
-    static final Font font = new Font("Monospaced", Font.PLAIN, 12);
-    static TextArea input  = new TextArea("words",10,50);
-    static TextArea output = new TextArea("ooeForth "+VERSION+"\n",10,50);
+    static final Font font = new Font("Monospaced", Font.PLAIN, 14);
+    static TextArea input  = new TextArea("words",10,60);
+    static TextArea output = new TextArea("ooeForth "+VERSION+"\n",10,120);
     static Frame frame = new Frame("ooeForth v"+VERSION);
     static Scanner in;
     static Stack<Integer>  ss   = new Stack<>();
@@ -300,7 +300,7 @@ public class EforthTing {
         new Code("allot",c->{  // n --
             int n=ss.pop();
             Code last=dict.tail();
-            for(int i=0;i<n;i++) last.pf.head().qf.head();}),
+            for(int i=0;i<n;i++) last.pf.head().qf.add(0);}),
         // metacompiler
         new Code("create",c->{
             String s=in.next(); dict.add(new Code(s));               // create variable
@@ -310,9 +310,10 @@ public class EforthTing {
         new Code("does",c->{ // n --
             Code last=dict.tail(), source=dict.get(wp);
             last.pf.addAll(source.pf.subList(ip+2,source.pf.size()));}),
-        new Code("to",c->{                                               // n -- , compile only 
-            Code last=dict.get(wp);ip++;                                 // current colon word
-            last.pf.get(ip++).pf.head().qf.set_head(ss.pop());}),        // next constant
+        new Code("to",    c->{String s=in.next();
+            Code w = dict.find(s, wx->s.equals(wx.name));
+            if (w==null) throw new  NumberFormatException();
+            dict.get(w.token).pf.head().qf.set_head(ss.pop());}),
         new Code("is",c->{                                               // w -- , execute only
             Code source=dict.get(ss.pop());         // source word
             String s=in.next();

@@ -6,7 +6,7 @@ package eforth;
 
 import java.util.*;
 import java.io.*;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.function.*;
 
 public class VM {
@@ -27,13 +27,13 @@ public class VM {
     // console input/output
     //
     StringTokenizer tok  = null;
-    PrintWriter     out  = new PrintWriter(System.out, true);
+    PrintWriter     out  = null;
     ///
     ///> functional interfaces
     ///
     public VM() { _setup_dict(); }
 
-    public void setOutput(PrintWriter out0) { out = out0; }
+    public void setOutput(PrintWriter out0) { out = out0; } ///> redirect output stream
     ///
     ///> find - Forth dictionary search 
     ///    @param  str  input string to be search against dictionary words
@@ -67,7 +67,7 @@ public class VM {
         else {                                          ///> in interpreter mode
             out.println();                              ///> * dump stack contents, and
             for (int n:ss) out.print(Integer.toString(n, base)+" ");
-            out.print("OK ");                           ///> * OK prompt
+            out.print("OK "); out.flush();              ///> * OK prompt
         }
         return run;
     }
@@ -94,7 +94,7 @@ public class VM {
                 try {
                     int n=Integer.parseInt(idiom, base); ///> * try process as a number
                     if (comp) {                          ///>> in compile mode 
-                        _colon_add(
+                        dict.tail().pf.add(
                             new Code("dolit", n));       ///>> append literal to latest defined word
                     }
                     else _ss_push(n);                    ///>> or, add number to top of stack
@@ -138,30 +138,6 @@ public class VM {
     ///
     ///> create dictionary with given word list
     ///
-    private void _setup_dict0() {
-        final String words[] = {
-            ///--------+--------+--------+--------+--------+--------+--------+--------+--------+--------
-            "dup",      "over",  "swap",  "rot",   "drop",  "nip",   "2drop", ">r",    "r>",    "r@",
-            "push",   "pop",   "2dup",  "2over", "4dup",  "-rot",  "2swap", "pick",  "roll",  "+",
-            "-",      "*",     "/",     "*/",    "*/mod", "mod",   "and",   "or",    "xor",   "negate",
-            "0=",     "0<",    "0>",    "=",     ">",     "<",     "<>",    ">=",    "<=",    "base@",
-            "base!",  "hex",   "decimal","cr",   ".",     ".r",    "u.r",   "key",   "emit",  "space",
-            "spaces", "[",     "]",     "'",     "dolit", "dostr", "$\"",   "dotstr",".\"",   "repeat",
-            "(",      ".(",    "\\",    "branch","if",    "else",  "then",  "loops", "begin", "while",
-            "again",  "until", "cycles","for",   "aft",   "next",  "exit",  "exec",  ":",     ";",
-            "docon",  "dovar", "create","variable","constant","@", "!",     "+!",    "?",     "array@",
-            "array!", ",",     "allot", "does",  "to",    "is",    "here",  "words", ".s",    "see",
-            "time",   "ms",    "bye"
-        };
-        for (String s: words) { dict.add(new Code(s));                 }
-        ///
-        ///> double check whether we have them all listed
-        ///
-        _vtable.forEach((k, v) -> {
-            Code w = find(k);
-            if (w==null) out.println("not found:"+k);
-        });
-    }
     private void _setup_dict() {
         // _setup_dict0();
         _vtable.forEach((k, v) -> dict.add(new Code(k)));    ///> create primitive words
@@ -177,7 +153,7 @@ public class VM {
             find(s).immediate();
         }
     }
-    final Hashtable<String, Consumer<Code>> _vtable = new Hashtable<>() {{
+    final LinkedHashMap<String, Consumer<Code>> _vtable = new LinkedHashMap<>() {{
         /// stack ops
         put( "dup",   c -> ss.push(ss.peek())               );
         put( "over",  c -> ss.push(ss.get(ss.size()-2))     );
@@ -367,7 +343,7 @@ public class VM {
             var temp = dict.tail();
             var last = dict.tail(2).pf.tail();
         });
-        /// Loop - for next
+        //// Loop - for next
         put( "cycles", c -> {
             int i=0;
             if (c.stage==0) {
@@ -410,16 +386,16 @@ public class VM {
             else last.add2(temp.pf);
             dict.drop_tail();
         });
-        /// Defining words
-        put( "exit", c -> { throw new ArithmeticException(); });    // marker to exit interpreter
+        //// Defining words
+        put( "exit", c -> { throw new ArithmeticException(); });    /// marker to exit interpreter
         put( "exec", c -> { int n=ss.pop(); xt(dict.get(n)); });
-        put( ":",    c -> {                                          // -- box
+        put( ":",    c -> {                                          /// -- box
             dict.add(new Code(tok.nextToken()));
             comp = true;
         });
         put( ";", c -> comp = false );
-        put( "docon", c -> ss.push(c.qf.head()) );                    // integer literal
-        put( "dovar", c -> ss.push(c.idx)       );                    // string literals
+        put( "docon", c -> ss.push(c.qf.head()) );                    /// integer literal
+        put( "dovar", c -> ss.push(c.idx)       );                    /// string literals
         put( "create",c -> {
             dict.add(new Code(tok.nextToken()));
             var last = dict.tail();
@@ -433,78 +409,79 @@ public class VM {
             _colon_add(new Code("dovar",0));
             last.pf.head().idx = last.idx;
         });
-        put( "constant", c -> { // n --
+        put( "constant", c -> {                                    /// n --
             dict.add(new Code(tok.nextToken()));
             var last = dict.tail();
             _colon_add(new Code("docon",ss.pop()));
             last.pf.head().idx = last.idx;
         });
-        put( "@",  c -> {       // w -- n
+        put( "@",  c -> {                                          /// w -- n
             var last = dict.get(ss.pop());
             ss.push(last.pf.head().qf.head());
         });
-        put( "!",  c -> {       // n w -- 
+        put( "!",  c -> {                                          /// n w -- 
             var last = dict.get(ss.pop());
             last.pf.head().qf.set_head(ss.pop());
         });
-        put( "+!", c -> {       // n w -- 
+        put( "+!", c -> {                                          /// n w -- 
             var last = dict.get(ss.pop());
             int n = last.pf.head().qf.head(); 
             n+= ss.pop();
             last.pf.head().qf.set_head(n);
         });
-        put( "?",  c -> {       // w -- 
+        put( "?",  c -> {                                          /// w -- 
             var last = dict.get(ss.pop());
             out.print(last.pf.head().qf.head());
         });
-        put( "array@", c -> {   // w a -- n
+        put( "array@", c -> {                                      /// w a -- n
             int a = ss.pop();
             var last = dict.get(ss.pop());
             ss.push(last.pf.head().qf.get(a));
         });
-        put( "array!", c -> {   // n w a -- 
+        put( "array!", c -> {                                      /// n w a -- 
             int a = ss.pop();
             var last = dict.get(ss.pop());
             last.pf.head().qf.set(a, ss.pop());
         });
-        put( ",",    c -> {      // n --
+        put( ",",    c -> {                                        /// n --
             var last = dict.tail();
             last.pf.head().qf.add(ss.pop());
         });
-        put( "allot",c -> {       // n --
+        put( "allot",c -> {                                        /// n --
             int n = ss.pop(); 
             var last = dict.tail();
             for (int i=0;i<n;i++) last.pf.head().qf.add(0);
         });
-        put( "does", c -> {      // n --
+        put( "does", c -> {                                        /// n --
             var last = dict.tail();
             var src  = dict.get(wp);
             last.pf.addAll(src.pf.subList(ip+2, src.pf.size()));
         });
-        put( "to",   c -> {                                           // n -- , compile only
+        put( "to",   c -> {                                        /// n -- , compile only
             var  w = find(tok.nextToken());
             if (w==null) throw new  NumberFormatException();
             dict.get(w.idx).pf.head().qf.set_head(ss.pop());
         });
-        put( "is",   c -> {                                           // w -- , execute only
+        put( "is",   c -> {                                        /// w -- , execute only
             String s = tok.nextToken(); 
             var    w = find(s);
 
             if (w==null) out.print(s+" ?");
             else {
-                var src = dict.get(ss.pop());                        // source word
+                var src = dict.get(ss.pop());                      /// source word
                 dict.get(w.idx).pf = src.pf; 
             }
         });
-        // tools
+        //// tools
         put( "here",  c -> ss.push(Code.fence) );
         put( "words", c -> { 
-            int i=0;
+            int i=0, sz = 0; 
             for (var w: dict) {
-                out.print(w.name + " ");
-                if (++i>15) {
+                out.print(w.name + "  ");
+                sz += w.name.length() + 2;                         /// width control
+                if (sz > 64) {
                     out.println();
-                    i=0;
+                    sz = 0;
                 }
             }
         });
@@ -518,13 +495,14 @@ public class VM {
                 for (var p: w.pf) out.print(p.name+", "+p.idx+", "+p.qf.toString()+"| ");       
             }
         });
-        put( "time",  c -> { 
-            LocalTime now = LocalTime.now();
-            out.println(now); 
-        });
-        put( "ms",    c -> {  // n --
+        put( "clock", c -> { ss.push((int)System.currentTimeMillis()); });
+        put( "ms",    c -> {                             /// n -- delay n milliseconds
             try { Thread.sleep(ss.pop());} 
             catch (Exception e) { out.println(e); }
+        });
+        put( "time",  c -> {                             /// display current time
+            LocalTime now = LocalTime.now();
+            out.println(now); 
         });
         put( "bye",   c -> run = false );
     }};

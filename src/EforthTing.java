@@ -68,9 +68,9 @@ public class EforthTing {
         public Immd(String n, Consumer<Code> f) { super(n, f); immd=true; }}
     static class Var extends Code {
         public Var(int val, boolean var) {
-            super(var ? "var" : "const", false); qf.add(val);
-            Consumer<Code> dovar = c->ss.push(c.token), docon = c->ss.push(c.qf.head());
-            xt = var ? dovar : docon; }}
+            super(var ? "var" : "lit", false); qf.add(val);
+            Consumer<Code> dovar = c->ss.push(c.token), dolit = c->ss.push(c.qf.head());
+            xt = var ? dovar : dolit; }}
     // primitive methods
     static void ss_dump() { output.append("< ");
     	for (int i:ss) output.append(Integer.toString(i,base)+" ");
@@ -90,7 +90,7 @@ public class EforthTing {
                 else compile(w);}
             else {
                 try {int n=Integer.parseInt(idiom, base);   // not word, try number
-                    if (compi) compile(new Var(n, true));   // compile integer literal
+                    if (compi) compile(new Var(n, false));  // compile integer literal
                     else ss.push(n);}                       // or push number on stack
                 catch (NumberFormatException  ex) {         // catch number errors
                     output.append(idiom + "? ");
@@ -212,7 +212,7 @@ public class EforthTing {
                 if (b.stage==1) { dict.drop();}
                 else tmp.pf.clear();}}),
         // loops
-        new Code("doloop",c->{
+        new Code("loops",c->{
             while (true) {
                 for (var w:c.pf) w.nest();
                 if (c.stage==0 && ss.pop()!=0) break;   // until
@@ -220,7 +220,7 @@ public class EforthTing {
                 if (c.stage==2 && ss.pop()==0) break;   // while repeat
                 for (var w:c.pf1) w.nest();}}),
         new Immd("begin",c->{
-            compile(new Code("doloop", false));
+            compile(new Code("loops", false));
             dict.add(new Code("tmp", false));}),
         new Immd("while",c->{
             Code b=dict.prev().pf.tail(), tmp=dict.tail();
@@ -237,7 +237,7 @@ public class EforthTing {
             Code b=dict.prev().pf.tail(), tmp=dict.tail();
             b.pf.addAll(tmp.pf);  dict.drop();}),
         // for next
-        new Code("dofor",c->{
+        new Code("cycles",c->{
             do { for (var w:c.pf) w.nest();
             } while (c.stage==0 && rs.push(rs.pop()-1)>=0);
             while (c.stage>0) {
@@ -247,7 +247,7 @@ public class EforthTing {
             rs.pop();}),
         new Immd("for",c->{
             compile(new Code(">r", false));
-            compile(new Code("dofor", false));
+            compile(new Code("cycles", false));
             dict.add(new Code("tmp", false));}),
         new Immd("aft",c->{
             Code b=dict.prev().pf.tail(), tmp=dict.tail();

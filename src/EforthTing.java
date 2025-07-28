@@ -21,7 +21,6 @@ public class EforthTing {
     static class ForthList<T> extends ArrayList<T> {
         ForthList()          {}                             // empty list
         ForthList(List<T> a) { super(a); }                  // initialize with a List (for primitives)
-        T head()             { return get(0);        }
         T tail()             { return get(size()-1); }
         T prev()             { return get(size()-2); }
         T find(String s, Predicate<T> m) {
@@ -67,9 +66,9 @@ public class EforthTing {
     static class Immd extends Code {
         public Immd(String n, Consumer<Code> f) { super(n, f); immd=true; }}
     static class Var extends Code {
-        public Var(int val, boolean var) {
-            super(var ? "var" : "lit", false); qf.add(val);
-            Consumer<Code> dovar = c->ss.push(c.token), dolit = c->ss.push(c.qf.head());
+        public Var(int d, boolean var) {
+            super(var ? "var" : "lit", false); qf.add(d);
+            Consumer<Code> dovar = c->ss.push(c.token), dolit = c->ss.push(c.qf.get(0));
             xt = var ? dovar : dolit; }}
     // primitive methods
     static void ss_dump() { output.append("< ");
@@ -77,7 +76,8 @@ public class EforthTing {
     	output.append(">ok\n"); }
     static Code create()        {Code w=new Code(in.next()); dict.add(w); return w;}
     static Code compile(Code w) {dict.tail().pf.add(w); return w;}
-    static void setval(int i, int v) {dict.get(i).pf.head().qf.set(0, v);}
+    static ForthList<Integer> va(int i) {                   // variable array
+        return dict.get(i<0?dict.size()+i:i).pf.get(0).qf;}
     // outer interpreter
     static void outerInterpreter() {
         while(in.hasNext()) {                               // parse input
@@ -155,8 +155,8 @@ public class EforthTing {
         new Code("<=",   c->{int n=ss.pop();ss.push((ss.pop()<=n)?-1:0);}),
         // output
         new Code("base", c->ss.push(0)),
-        new Code("hex",  c->setval(0, base=16)),
-        new Code("decimal",c->setval(0, base=10)),
+        new Code("hex",  c->va(0).set(0,base=16)),
+        new Code("decimal",c->va(0).set(0,base=10)),
         new Code("bl",   c->ss.push(32)),
         new Code("cr",   c->output.append("\n")),
         new Code(".",    c->output.append(Integer.toString(ss.pop(),base)+" ")),
@@ -171,7 +171,7 @@ public class EforthTing {
         new Code("type", c->{
             ss.pop(); int i = ss.pop();                                   // str index
             output.append(
-                i < 0 ? pad : dict.get(ss.pop()).pf.head().str);}),
+                i < 0 ? pad : dict.get(ss.pop()).pf.get(0).str);}),
         new Code("key",  c->ss.push((int) in.next().charAt(0))),
         new Code("emit", c->{char b=(char)(int)ss.pop();output.append(""+b);}),
         new Code("space",c->{output.append(" ");}),
@@ -261,10 +261,11 @@ public class EforthTing {
         // defining words
         new Code("dodoes", c->{
             boolean hit=false;
+            output.append("c.name="+c.name+" c.token="+c.token);
             for (var w : dict.get(c.token).pf) {
-                output.append("\n"+w.name+" h="+hit);
                 if (hit) compile(w);
                 else if (w.name=="dodoes") hit=true;
+                output.append("\n"+w.name+" h="+hit);
             }}),
         new Code("exit",c->{throw new ArithmeticException();}),      // exit interpreter
         new Code("exec",c->{int n=ss.pop();dict.get(n).nest();}),
@@ -277,35 +278,27 @@ public class EforthTing {
             create();
             compile(new Var(ss.pop(), false)).token = dict.tail().token;}),
 		// memory access
-        new Code("@",c->{                                            // w -- n
-            Code v=dict.get(ss.pop()).pf.head();
-            ss.push(v.qf.head());}),
-        new Code("!",c->{int i=ss.pop(); setval(i,ss.pop());}),      // n w --
+        new Code("@",c->ss.push(va(ss.pop()).get(0))),               // w -- n
+        new Code("!",c->{int i=ss.pop(); va(i).set(0,ss.pop());}),   // n w --
         new Code("+!",c->{
-            int i=ss.pop(); int v=dict.get(i).pf.head().qf.head();   // n w --
-            setval(i, v + ss.pop());}),
-        new Code("?",c->{
-            Code v=dict.get(ss.pop()).pf.head();
-            output.append(Integer.toString(v.qf.head()));}),
-        new Code("array@",c->{                                       // w i -- n
-            int i=ss.pop();
-            ss.push(dict.get(ss.pop()).pf.head().qf.get(i));}),
-        new Code("array!",c->{                                       // n w i --
-            int i=ss.pop(), w=ss.pop();
-            dict.get(w).pf.head().qf.set(i,ss.pop());}),
-        new Code(",",c->dict.tail().pf.head().qf.add(ss.pop())),
-        new Code("allot",c->{                                        // n --
-            int  n=ss.pop();
-            Code v=dict.tail().pf.head();
-            for(int i=0;i<n;i++) v.qf.add(0);}),
+            int i=ss.pop(); va(i).set(0,va(i).get(0)+ss.pop());}),  // n w --
+        new Code("?",c->
+            output.append(Integer.toString(va(ss.pop()).get(0)))),
+        new Code("array@",c->{                                       // a i -- n
+            int i=ss.pop(); ss.push(va(ss.pop()).get(i));}),
+        new Code("array!",c->{                                       // n a i --
+            int i=ss.pop(), a=ss.pop(); va(a).set(i,ss.pop());}),
+        new Code(",",c->va(-1).add(ss.pop())),
+        new Code("allot",c->{
+           for(int i=0, n=ss.pop();i<n;i++) va(-1).add(0);}),
         // metacompiler
         new Code("create",c->{
             create();                                                // create variable
             compile(new Var(0, true)).token = dict.tail().token;
-            dict.tail().pf.head().qf.drop();}),                      // no value
+            va(-1).drop();}),                                        // no value
         new Immd("does>",c->{
             compile(new Code("dodoes", false)).token=dict.tail().token;}),
-        new Code("to",   c->setval(find_next().token, ss.pop())),
+        new Code("to",   c->va(find_next().token).set(0,ss.pop())),
         new Code("is",c->{                                           // w -- , execute only
             Code src=dict.get(ss.pop());                             // source word
             Code w=find_next(); dict.get(w.token).pf=src.pf;}),
@@ -338,7 +331,7 @@ public class EforthTing {
 	public static void main(String args[]) {
 		dict = primitives;							 // setup dictionary
         Var b = new Var(base=10, true); b.token = 0; // use dict[0] as base storage
-        dict.head().pf.add(b);                      
+        dict.get(0).pf.add(b);                      
 		System.out.println("ooeForth"+VERSION+"\n");
 		input.setFont(font);
 		output.setFont(font);

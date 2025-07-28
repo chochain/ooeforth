@@ -52,7 +52,7 @@ public class EforthTing {
             if (xt!=null) {xt.accept(this); return;}        // execute primitive word
             for(Code w:pf) {
                 try { w.nest(); }                           // inner interpreter
-                catch (ArithmeticException e) {}}}
+                catch (ArithmeticException e) {break;}}}    // exit, 
         public void see(int dp) {
             Consumer<String> tab = s->{
                 int i=dp; output.append("\n"); 
@@ -71,6 +71,7 @@ public class EforthTing {
             Consumer<Code> dovar = c->ss.push(c.token), dolit = c->ss.push(c.qf.get(0));
             xt = var ? dovar : dolit; }}
     // primitive methods
+    static void unnest() { throw new ArithmeticException(); }
     static void ss_dump() { output.append("< ");
     	for (int i:ss) output.append(Integer.toString(i,base)+" ");
     	output.append(">ok\n"); }
@@ -84,7 +85,7 @@ public class EforthTing {
             String idiom=in.next();
             Code w=dict.find(idiom,wx->idiom.equals(wx.name));
             if(w !=null) {                                  // word found
-                if((!compi) || w.immd) {
+                if(!compi || w.immd) {
                     try { w.nest(); }                       // execute
                     catch (Exception e) {output.append(e.toString());}}
                 else compile(w);}
@@ -92,7 +93,7 @@ public class EforthTing {
                 try {int n=Integer.parseInt(idiom, base);   // not word, try number
                     if (compi) compile(new Var(n, false));  // compile integer literal
                     else ss.push(n);}                       // or push number on stack
-                catch (NumberFormatException  ex) {         // catch number errors
+                catch (NumberFormatException  e) {          // catch number errors
                     output.append(idiom + "? ");
                     compi=false; ss.clear();}}}
         if (!compi) ss_dump(); }
@@ -261,13 +262,11 @@ public class EforthTing {
         // defining words
         new Code("dodoes", c->{
             boolean hit=false;
-            output.append("c.name="+c.name+" c.token="+c.token);
             for (var w : dict.get(c.token).pf) {
                 if (hit) compile(w);
                 else if (w.name=="dodoes") hit=true;
-                output.append("\n"+w.name+" h="+hit);
-            }}),
-        new Code("exit",c->{throw new ArithmeticException();}),      // exit interpreter
+            } unnest();}),
+        new Code("exit",c->unnest()),                                // exit interpreter
         new Code("exec",c->{int n=ss.pop();dict.get(n).nest();}),
         new Code(":",   c->{create(); compi=true;}),                 // colon
         new Immd(";",     c->compi=false),                           // semicolon
@@ -296,8 +295,8 @@ public class EforthTing {
             create();                                                // create variable
             compile(new Var(0, true)).token = dict.tail().token;
             va(-1).drop();}),                                        // no value
-        new Immd("does>",c->{
-            compile(new Code("dodoes", false)).token=dict.tail().token;}),
+        new Immd("does>",c->
+            compile(new Code("dodoes", false)).token=dict.tail().token),
         new Code("to",   c->va(find_next().token).set(0,ss.pop())),
         new Code("is",c->{                                           // w -- , execute only
             Code src=dict.get(ss.pop());                             // source word

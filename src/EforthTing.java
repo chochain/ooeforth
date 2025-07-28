@@ -75,8 +75,8 @@ public class EforthTing {
     static void ss_dump() { output.append("< ");
     	for (int i:ss) output.append(Integer.toString(i,base)+" ");
     	output.append(">ok\n"); }
+    static Code create()        {Code w=new Code(in.next()); dict.add(w); return w;}
     static Code compile(Code w) {dict.tail().pf.add(w); return w;}
-    static Code create()        {Code c=new Code(in.next()); dict.add(c); return c;}
     static void setval(int i, int v) {dict.get(i).pf.head().qf.set(0, v);}
     // outer interpreter
     static void outerInterpreter() {
@@ -186,7 +186,7 @@ public class EforthTing {
             if (compi) {
                 compile(new Code("dostr",s)).token = dict.tail().token;   // literal=s
             }
-            else {ss.push(-1); ss.push(pad.length());}}),
+            else {ss.push(-1); ss.push(s.length());}}),
         new Code("dotstr",c->{output.append(c.str);}),
         new Immd(".\"",  c->compile(new Code("dotstr",word("\"")))),      // literal=s
         new Immd("(",    c->word("\\)")),

@@ -70,9 +70,9 @@ public class EforthTing {
             xt = var ? dovar : dolit; }}
     // primitive methods
     static void unnest() { throw new ArithmeticException(); }
-    static void ss_dump() { out.print("< ");
-    	for (int i:ss) out.print(Integer.toString(i,base)+" ");
-    	out.print(">ok\n"); }
+    static void spaces(int n) {for(int i=0;i<n;i++)out.print(" ");}
+    static String to_s(int n) {return Integer.toString(n,base)+" ";}
+    static void ss_dump() {for (int i:ss) out.print(to_s(i));}
     static Code create() {
         String n=in.next();
         if (dict.find(n,wx->n.equals(wx.name))!=null) out.print(n+" reDef?");
@@ -97,8 +97,7 @@ public class EforthTing {
                 catch (NumberFormatException  e) {          // catch number errors
                     out.print(idiom + "? ");
                     compi=false; ss.clear();}}}
-        if (!compi) ss_dump(); }
-    static void spaces(int n) {for(int i=0;i<n;i++)out.print(" ");}
+        if (!compi) {out.print("< ");ss_dump();out.print(">ok\n");}}
     static String word(String delim) {
         var d=in.delimiter(); in.useDelimiter(delim);       // change delimiter
         pad=in.next(); in.useDelimiter(d); in.next();       // restore delimiter
@@ -162,13 +161,13 @@ public class EforthTing {
         new Code("decimal",c->va(0).set(0,base=10)),
         new Code("bl",   c->ss.push(32)),
         new Code("cr",   c->out.print("\n")),
-        new Code(".",    c->out.print(Integer.toString(ss.pop(),base)+" ")),
+        new Code(".",    c->out.print(to_s(ss.pop()))),
         new Code(".r",   c->{
-            int n=ss.pop(); String s=Integer.toString(ss.pop(),base);
-            spaces(n-s.length()); out.print(s+" ");}),
-        new Code("u.r",  c->{int n=ss.pop();
-            String s=Integer.toString(ss.pop()&0x7fffffff,base);
-            spaces(n-s.length()); out.print(s+" ");}),
+            int n=ss.pop(); String s=to_s(ss.pop());
+            spaces(n-s.length()-1); out.print(s);}),
+        new Code("u.r",  c->{
+            int n=ss.pop(); String s=to_s(ss.pop()&0x7fffffff);
+            spaces(n-s.length()-1); out.print(s);}),
         new Code("type", c->{ss.pop(); int i = ss.pop();                  // str index
             out.print(i < 0 ? pad : dict.get(i).pf.get(0).str);}),
         new Code("key",  c->ss.push((int)word("").charAt(0))),
@@ -182,10 +181,8 @@ public class EforthTing {
         new Code("dostr",c->{ss.push(c.token);ss.push(c.str.length());}), // string literal
         new Immd("s\"",  c->{                                             // -- w a
             String s=word("\""); if (s==null) return;
-            if (compi) {
-                compile(new Code("dostr",s)).token = dict.tail().token;   // literal=s
-            }
-            else {ss.push(-1); ss.push(s.length());}}),
+            if (!compi) {ss.push(-1); ss.push(s.length());}
+            else compile(new Code("dostr",s)).token=dict.tail().token;}), // literal=s
         new Code("dotstr",c->{out.print(c.str);}),
         new Immd(".\"",  c->compile(new Code("dotstr",word("\"")))),      // literal=s
         new Immd("(",    c->word("\\)")),
@@ -281,8 +278,7 @@ public class EforthTing {
             if (i==0) base=v;}),                                     // no ptr, too bad
         new Code("+!",c->{
             int i=ss.pop(); va(i).set(0,va(i).get(0)+ss.pop());}),   // n w --
-        new Code("?",c->
-            out.print(Integer.toString(va(ss.pop()).get(0)))),
+        new Code("?",c->out.print(to_s(va(ss.pop()).get(0)))),
         new Code("array@",c->{                                       // a i -- n
             int i=ss.pop(); ss.push(va(ss.pop()).get(i));}),
         new Code("array!",c->{                                       // n a i --
@@ -309,8 +305,7 @@ public class EforthTing {
                 out.print(w.name+"  ");
                 sz += w.name.length() + 2;
                 if (sz>64) {out.print("\n");sz=0;}}}),
-        new Code(".s",   c->{
-            for(int n:ss) out.print(Integer.toString(n,base)+" ");}),
+        new Code(".s",   c->ss_dump()),
         new Code("see",  c->{Code w=find_next(); w.see(0);}),
         new Code("time", c->{
             LocalTime now=LocalTime.now();

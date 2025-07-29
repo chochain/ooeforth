@@ -13,7 +13,6 @@ cr .( example 2.      the big f )
 ( type 'f' and a return on your keyboard, and you will see a large
 f character displayed on the screen )
 
-
 cr .( example 3.      fig, forth interest group )
 
 : center cr ."   *  " ;
@@ -30,6 +29,7 @@ cr .( example 3.      fig, forth interest group )
 : bigg  triad4 sides post right triad1 sides triad4 ;
 : fig  f bigi bigg ;
 
+fig
 
 cr .( example 4.      repeated patterns )
 (
@@ -149,10 +149,9 @@ then    [ -- ]                  terminate an if-else-then structure
                 cr ." wrecked " the summary based hiding
                 cr ." and demolished " the theory rest
         ;
-THEORY
-
+        
 ( type theory to start)
-
+THEORY
 
 cr .( example 6.      help )
 ( how to use forth interpreter to carry on a dialog )
@@ -254,15 +253,15 @@ decimal
 : ounce ( n -- n, a word to improve syntax )  ;
 : dollars ( n -- )      . ;
 
-( with this set of money exchange words, we can do some tests:
+cr .( with this set of money exchange words, we can do some tests: )
 
-        5 ounce gold .
-        10 ounce silver .
-        100 $nt .
-        20 $rmb .
+        5 ounce gold . cr
+        10 ounce silver . cr
+        100 $nt . cr
+        20 $rmb . cr
 
-if you have many different currency bills in your wallet, you
-can add then all up in dollars:
+cr .( if you have many different currency bills in your wallet, you
+can add then all up in dollars: )
 
         1000 nt 500 hk + .s
         320 rmb + .s
@@ -286,10 +285,10 @@ have an offset besides the scaling factor. )
         32 +
         ;
 
-( try these commands
+.( try these commands
 
-90 f>c .        shows the temperature in a hot summer day and
-0 c>f .         shows the temperature in a cold winter night. 
+90 f>c .      shows the temperature in a hot summer day and
+0 c>f .       shows the temperature in a cold winter night. 
 
 in the above examples, we use the following forth arithmatic
 operators:
@@ -305,7 +304,8 @@ operators:
                                 by n3 and leave quotient on the stack.
 .s      [ ... -- ... ]          show the topmost 4 numbers on stack.
 )
-
+90 f>c . cr
+0 c>f . cr
 
 cr .( example 9.  weather reporting. )
 
@@ -320,7 +320,7 @@ cr .( example 9.  weather reporting. )
         ;
 
 
-( you can type the following instructions and get some responses from the
+.( you can type the following instructions and get some responses from the
 computer:
 
         90 weather too hot!
@@ -434,8 +434,6 @@ variable leap                           ( 1 for a leap year, 0 otherwise. )
 ( to print the calender of april 1999, type: )
         2021 may
 
-
-
 cr .( example 12.      sines and cosines )
 
 ( sines and cosines of angles are among the most often encountered
@@ -500,12 +498,12 @@ variable xs                             ( square of scaled angle )
 
 ( to test the routines, type:
 
-        90 sin .                         9999 
-        45 sin .                         7070 
+        90 sin .                         10000 
+        45 sin .                         7071 
         30 sin .                         5000 
          0 sin .                            0 
         90 cos .                            0 
-        45 cos .                         7071 
+        45 cos .                         7072 
          0 cos .                         10000 )
 
 
@@ -544,17 +542,17 @@ cr .( example 14.      radix for number conversions )
 
 decimal
 
-( : decimal       10 base! ; )
-( : hex           16 base! ; )
-: octal         8 base!  ;
-: binary        2 base!  ;
+( : decimal       10 base ! ; )
+( : hex           16 base ! ; )
+: octal         8 base !  ;
+: binary        2 base !  ;
 
 ( try converting numbers among different radices:
 
         decimal 12345 hex  .
         hex abcd decimal  .
         decimal 100 binary  .
-        binary 101010101010 decimal  .
+        binary  101010101010 decimal  .
 
 real programmers impress on novices by carrying a hp calculator
 which can convert numbers between decimal and hexadecimal.  a

@@ -1,17 +1,15 @@
 import java.util.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.time.LocalTime;
+import javax.swing.*;
 import java.util.function.*;
+import java.time.LocalTime;
 import java.util.List;
+import java.io.*;
 
 public class EforthTing {
-    final static String VERSION="2.08";
-    static final Font font = new Font("Monospaced", Font.PLAIN, 14);
-    static TextArea input  = new TextArea("",10,60);
-    static TextArea output = new TextArea("ooeForth "+VERSION+"\n",10,120);
-    static Frame frame     = new Frame("ooeForth v"+VERSION);
-    static Scanner in;
+    static Scanner         in;
+    static PrintStream     out;
     static Stack<Integer>  ss   = new Stack<>();
     static Stack<Integer>  rs   = new Stack<>();
     static ForthList<Code> dict = null;
@@ -27,13 +25,13 @@ public class EforthTing {
             for (int i=size()-1; i>=0; i--) {               // search array from tail to head
                 T w = get(i); if (m.test(w)) return w;}
             return null;}
-        void drop()          { remove(size()-1);     }}
+        void drop()          { remove(size()-1); }}
     // forth words constructor
     static class Code {                                      // one size fits all objects
         static int fence=0;
         static Consumer<Code> get_xt(String n) {
             Code w=dict.find(n,wx->n.equals(wx.name));
-            return w==null ? null : w.xt;}
+            return w==null ? null : w.xt; }
         public int token=0;
         public String name;
         public Consumer<Code>     xt  = null;
@@ -52,17 +50,17 @@ public class EforthTing {
             if (xt!=null) {xt.accept(this); return;}        // execute primitive word
             for(Code w:pf) {
                 try { w.nest(); }                           // inner interpreter
-                catch (ArithmeticException e) {break;}}}    // exit, 
+                catch (ArithmeticException e) {break;} }}   // exit, 
         public void see(int dp) {
             Consumer<String> tab = s->{
-                int i=dp; output.append("\n"); 
-                while (i-->0) { output.append("  ");} output.append(s);};
+                int i=dp; out.print("\n"); 
+                while (i-->0) { out.print("  ");} out.print(s);};
             tab.accept((dp == 0 ? ": " : "")+name+" "); pf.forEach(w->w.see(dp+1));
             if (pf1.size()>0) { tab.accept("( 1-- )"); pf1.forEach(w->w.see(dp+1));}
             if (pf2.size()>0) { tab.accept("( 2-- )"); pf2.forEach(w->w.see(dp+1));}
-            if (qf.size()>0)  { output.append(" \\ ="); qf.forEach(i->output.append(i.toString()+" "));}
-            if (str!=null)    output.append(" \\ =\""+str.substring(1)+"\" ");
-            if (dp == 0) output.append("\n;");}}
+            if (qf.size()>0)  { out.print(" \\ ="); qf.forEach(i->out.print(i.toString()+" "));}
+            if (str!=null)    out.print(" \\ =\""+str.substring(1)+"\" ");
+            if (dp == 0) out.print("\n;"); }}
     static class Immd extends Code {
         public Immd(String n, Consumer<Code> f) { super(n, f); immd=true; }}
     static class Var extends Code {
@@ -72,9 +70,9 @@ public class EforthTing {
             xt = var ? dovar : dolit; }}
     // primitive methods
     static void unnest() { throw new ArithmeticException(); }
-    static void ss_dump() { output.append("< ");
-    	for (int i:ss) output.append(Integer.toString(i,base)+" ");
-    	output.append(">ok\n"); }
+    static void ss_dump() { out.print("< ");
+    	for (int i:ss) out.print(Integer.toString(i,base)+" ");
+    	out.print(">ok\n"); }
     static Code create()        {Code w=new Code(in.next()); dict.add(w); return w;}
     static Code compile(Code w) {dict.tail().pf.add(w); return w;}
     static ForthList<Integer> va(int i) {                   // variable array
@@ -87,25 +85,25 @@ public class EforthTing {
             if(w !=null) {                                  // word found
                 if(!compi || w.immd) {
                     try { w.nest(); }                       // execute
-                    catch (Exception e) {output.append(e.toString());}}
+                    catch (Exception e) {out.print(e.toString());}}
                 else compile(w);}
             else {
                 try {int n=Integer.parseInt(idiom, base);   // not word, try number
                     if (compi) compile(new Var(n, false));  // compile integer literal
                     else ss.push(n);}                       // or push number on stack
                 catch (NumberFormatException  e) {          // catch number errors
-                    output.append(idiom + "? ");
+                    out.print(idiom + "? ");
                     compi=false; ss.clear();}}}
         if (!compi) ss_dump(); }
     static String word(String delim) {
         var d=in.delimiter(); in.useDelimiter(delim);       // change delimiter
         pad=in.next(); in.useDelimiter(d); in.next();       // restore delimiter
-        return pad;}
+        return pad; }
     static Code find_next() {
         String s=in.next();
         Code   w= dict.find(s, wx->s.equals(wx.name));
         if (w==null) throw new NumberFormatException();
-        return w;}
+        return w; }
     static ForthList<Code> primitives = new ForthList<>(Arrays.asList(
         // Stack ops
         new Code("dup",  c->ss.push(ss.peek())),
@@ -159,24 +157,24 @@ public class EforthTing {
         new Code("hex",  c->va(0).set(0,base=16)),
         new Code("decimal",c->va(0).set(0,base=10)),
         new Code("bl",   c->ss.push(32)),
-        new Code("cr",   c->output.append("\n")),
-        new Code(".",    c->output.append(Integer.toString(ss.pop(),base)+" ")),
+        new Code("cr",   c->out.print("\n")),
+        new Code(".",    c->out.print(Integer.toString(ss.pop(),base)+" ")),
         new Code(".r",   c->{
             int n=ss.pop(); String s=Integer.toString(ss.pop(),base);
-            for(int i=0;i+s.length()<n;i++)output.append(" ");
-            output.append(s+" ");}),
+            for(int i=0;i+s.length()<n;i++)out.print(" ");
+            out.print(s+" ");}),
         new Code("u.r",  c->{int n=ss.pop();
             String s=Integer.toString(ss.pop()&0x7fffffff,base);
-            for(int i=0;i+s.length()<n;i++)output.append(" ");
-            output.append(s+" ");}),
+            for(int i=0;i+s.length()<n;i++)out.print(" ");
+            out.print(s+" ");}),
         new Code("type", c->{
             ss.pop(); int i = ss.pop();                                   // str index
-            output.append(
+            out.print(
                 i < 0 ? pad : dict.get(ss.pop()).pf.get(0).str);}),
         new Code("key",  c->ss.push((int) in.next().charAt(0))),
-        new Code("emit", c->{char b=(char)(int)ss.pop();output.append(""+b);}),
-        new Code("space",c->{output.append(" ");}),
-        new Code("spaces",c->{int n=ss.pop();for(int i=0;i<n;i++)output.append(" ");}),
+        new Code("emit", c->{char b=(char)(int)ss.pop();out.print(""+b);}),
+        new Code("space",c->{out.print(" ");}),
+        new Code("spaces",c->{int n=ss.pop();for(int i=0;i<n;i++)out.print(" ");}),
         // literals
         new Code("[",    c->compi=false),
         new Code("]",    c->compi=true),
@@ -188,10 +186,10 @@ public class EforthTing {
                 compile(new Code("dostr",s)).token = dict.tail().token;   // literal=s
             }
             else {ss.push(-1); ss.push(s.length());}}),
-        new Code("dotstr",c->{output.append(c.str);}),
+        new Code("dotstr",c->{out.print(c.str);}),
         new Immd(".\"",  c->compile(new Code("dotstr",word("\"")))),      // literal=s
         new Immd("(",    c->word("\\)")),
-        new Immd(".(",   c->output.append(word("\\)"))),
+        new Immd(".(",   c->out.print(word("\\)"))),
         new Immd("\\",   c->word("\n")),
         // structure: if else then
         new Code("branch",c->{
@@ -280,9 +278,9 @@ public class EforthTing {
         new Code("@",c->ss.push(va(ss.pop()).get(0))),               // w -- n
         new Code("!",c->{int i=ss.pop(); va(i).set(0,ss.pop());}),   // n w --
         new Code("+!",c->{
-            int i=ss.pop(); va(i).set(0,va(i).get(0)+ss.pop());}),  // n w --
+            int i=ss.pop(); va(i).set(0,va(i).get(0)+ss.pop());}),   // n w --
         new Code("?",c->
-            output.append(Integer.toString(va(ss.pop()).get(0)))),
+            out.print(Integer.toString(va(ss.pop()).get(0)))),
         new Code("array@",c->{                                       // a i -- n
             int i=ss.pop(); ss.push(va(ss.pop()).get(i));}),
         new Code("array!",c->{                                       // n a i --
@@ -306,19 +304,19 @@ public class EforthTing {
         new Code("words",c->{
             for (int i=dict.size()-1,sz=0; i>=0; --i) {
                 Code w=dict.get(i);
-                output.append(w.name+"  ");
+                out.print(w.name+"  ");
                 sz += w.name.length() + 2;
-                if (sz>64) {output.append("\n");sz=0;}}}),
+                if (sz>64) {out.print("\n");sz=0;}}}),
         new Code(".s",   c->{
-            for(int n:ss) output.append(Integer.toString(n,base)+" ");}),
+            for(int n:ss) out.print(Integer.toString(n,base)+" ");}),
         new Code("see",  c->{Code w=find_next(); w.see(0);}),
         new Code("time", c->{
             LocalTime now=LocalTime.now();
-            output.append(now.toString());}),
+            out.print(now.toString());}),
         new Code("clock",c->{ss.push((int)System.currentTimeMillis());}),
         new Code("ms",   c->{                                       // n -- sleep millisec
             try { Thread.sleep(ss.pop());}
-            catch (Exception e) { output.append(e.toString());}}),
+            catch (Exception e) { out.print(e.toString());}}),
         new Code("forget",c->{
             Code w=find_next();
             Code b=dict.find("boot", wx->"boot".equals(wx.name));
@@ -330,21 +328,32 @@ public class EforthTing {
 	public static void main(String args[]) {
 		dict = primitives;							 // setup dictionary
         Var b = new Var(base=10, true); b.token = 0; // use dict[0] as base storage
-        dict.get(0).pf.add(b);                      
-		System.out.println("ooeForth"+VERSION+"\n");
-		input.setFont(font);
-		output.setFont(font);
-		frame.add(input, BorderLayout.EAST);
-		frame.add(output, BorderLayout.WEST);
-		frame.setSize(1000, 700);
+        dict.get(0).pf.add(b);
+        String APP_NAME  = "ooeForth 2.08";
+        JTextArea input  = new JTextArea("",10,60);  // GUI section
+        JTextArea output = new JTextArea(APP_NAME+"\n",10,80);
+        JScrollPane iscl = new JScrollPane(input);
+        JScrollPane oscl = new JScrollPane(output);
+        Font font = new Font("Monospaced", Font.PLAIN, 14);
+		input.setFont(font); output.setFont(font);
+        JFrame frame = new JFrame(APP_NAME);
+        frame.setLayout(new BorderLayout());
+        frame.add(iscl, BorderLayout.EAST);	frame.add(oscl, BorderLayout.WEST); 
+		frame.pack(); frame.setMinimumSize(new Dimension(1000,700));
 		frame.setVisible(true);
 		frame.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent we) {System.exit(0);}});
+        input.requestFocusInWindow();
 		input.addKeyListener(new KeyAdapter() {
 			public void keyTyped(KeyEvent ke) {
-                char c = ke.getKeyChar();
-				if (c <= 13 && c != 8) {
-					in = new Scanner(input.getText());
-					outerInterpreter();
-					input.setText("");
-					in.close();}}});}}
+                char c = ke.getKeyChar(); if (c > 13 || c == 8) return;
+                in = new Scanner(input.getText());
+                outerInterpreter();
+                input.setText("");
+                in.close();}});
+        class GuiPrintStream extends PrintStream {   // redirect to TextArea
+            GuiPrintStream(OutputStream o) { super(o); }
+            @Override public void print(String s) {
+                output.append(s);
+                output.setCaretPosition(output.getDocument().getLength());}};
+        out = new GuiPrintStream(System.out);}}

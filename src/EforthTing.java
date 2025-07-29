@@ -20,7 +20,7 @@ public class EforthTing {
         ForthList()          {}                             // empty list
         ForthList(List<T> a) { super(a); }                  // initialize with a List (for primitives)
         T tail()             { return get(size()-1); }
-        T prev()             { return get(size()-2); }
+        T prev()             { return get(size()-2).pf.tail(); }
         T find(String s, Predicate<T> m) {
             for (int i=size()-(compi ? 2 : 1); i>=0; i--) { // search array from tail to head
                 T w = get(i); if (m.test(w)) return w;}
@@ -195,14 +195,11 @@ public class EforthTing {
             compile(new Code("branch", false));
             dict.add(new Code("tmp", false));}),
         new Immd("else", c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
-            b.pf.addAll(tmp.pf); tmp.pf.clear();
-            b.stage=1;}),
+            Code b=dict.prev(), tmp=dict.tail();
+            b.pf.addAll(tmp.pf); tmp.pf.clear(); b.stage=1;}),
         new Immd("then", c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
-            if (b.stage==0) {
-                b.pf.addAll(tmp.pf);
-                dict.drop();}
+            Code b=dict.prev(), tmp=dict.tail();
+            if (b.stage==0) {b.pf.addAll(tmp.pf); dict.drop();}
             else {
                 b.pf1.addAll(tmp.pf);
                 if (b.stage==1) { dict.drop();}
@@ -219,19 +216,17 @@ public class EforthTing {
             compile(new Code("loops", false));
             dict.add(new Code("tmp", false));}),
         new Immd("while",c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
-            b.pf.addAll(tmp.pf); tmp.pf.clear();
-            b.stage=2;}),
+            Code b=dict.prev(), tmp=dict.tail();
+            b.pf.addAll(tmp.pf); tmp.pf.clear(); b.stage=2;}),
         new Immd("repeat",c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
+            Code b=dict.prev(), tmp=dict.tail();
             b.pf1.addAll(tmp.pf); dict.drop();}),
         new Immd("again",c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
-            b.pf.addAll(tmp.pf);  dict.drop();
-            b.stage=1;}),
+            Code b=dict.prev(), tmp=dict.tail();
+            b.pf.addAll(tmp.pf); dict.drop(); b.stage=1;}),
         new Immd("until",c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
-            b.pf.addAll(tmp.pf);  dict.drop();}),
+            Code b=dict.prev(), tmp=dict.tail();
+            b.pf.addAll(tmp.pf); dict.drop();}),
         // for next
         new Code("cycles",c->{
             do { for (var w:c.pf) w.nest();
@@ -246,11 +241,10 @@ public class EforthTing {
             compile(new Code("cycles", false));
             dict.add(new Code("tmp", false));}),
         new Immd("aft",c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
-            b.pf.addAll(tmp.pf); tmp.pf.clear();
-            b.stage=3;}),
+            Code b=dict.prev(), tmp=dict.tail();
+            b.pf.addAll(tmp.pf); tmp.pf.clear(); b.stage=3;}),
         new Immd("next",c->{
-            Code b=dict.prev().pf.tail(), tmp=dict.tail();
+            Code b=dict.prev(), tmp=dict.tail();
             if (b.stage==0) b.pf.addAll(tmp.pf);
             else b.pf2.addAll(tmp.pf);
             dict.drop();}),
@@ -259,12 +253,12 @@ public class EforthTing {
             boolean hit=false;
             for (var w : dict.get(c.token).pf) {
                 if (hit) compile(w);
-                else if (w.name=="dodoes") hit=true;
-            } unnest();}),
+                else if (w.name=="dodoes") hit=true;}
+            unnest();}),
         new Code("exit",c->unnest()),                                // exit interpreter
         new Code("exec",c->{int n=ss.pop();dict.get(n).nest();}),
         new Code(":",   c->{create(); compi=true;}),                 // colon
-        new Immd(";",     c->compi=false),                           // semicolon
+        new Immd(";",   c->compi=false),                             // semicolon
         new Code("variable",c->{
             create();
             compile(new Var(0, true)).token = dict.tail().token;}),

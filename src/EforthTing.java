@@ -22,7 +22,7 @@ public class EforthTing {
         T tail()             { return get(size()-1); }
         T prev()             { return get(size()-2); }
         T find(String s, Predicate<T> m) {
-            for (int i=size()-1; i>=0; i--) {               // search array from tail to head
+            for (int i=size()-(compi ? 2 : 1); i>=0; i--) { // search array from tail to head
                 T w = get(i); if (m.test(w)) return w;}
             return null;}
         void drop()          { remove(size()-1); }}
@@ -73,7 +73,10 @@ public class EforthTing {
     static void ss_dump() { out.print("< ");
     	for (int i:ss) out.print(Integer.toString(i,base)+" ");
     	out.print(">ok\n"); }
-    static Code create()        {Code w=new Code(in.next()); dict.add(w); return w;}
+    static Code create() {
+        String n=in.next();
+        if (dict.find(n,wx->n.equals(wx.name))!=null) out.print(n+" reDef?");
+        Code w=new Code(n); dict.add(w); return w;}
     static Code compile(Code w) {dict.tail().pf.add(w); return w;}
     static ForthList<Integer> va(int i) {                   // variable array
         return dict.get(i<0?dict.size()+i:i).pf.get(0).qf;}
@@ -169,9 +172,8 @@ public class EforthTing {
             out.print(s+" ");}),
         new Code("type", c->{
             ss.pop(); int i = ss.pop();                                   // str index
-            out.print(
-                i < 0 ? pad : dict.get(ss.pop()).pf.get(0).str);}),
-        new Code("key",  c->ss.push((int) in.next().charAt(0))),
+            out.print(i < 0 ? pad : dict.get(ss.pop()).pf.get(0).str);}),
+        new Code("key",  c->ss.push((int)word("").charAt(0))),
         new Code("emit", c->{char b=(char)(int)ss.pop();out.print(""+b);}),
         new Code("space",c->{out.print(" ");}),
         new Code("spaces",c->{int n=ss.pop();for(int i=0;i<n;i++)out.print(" ");}),
@@ -276,7 +278,9 @@ public class EforthTing {
             compile(new Var(ss.pop(), false)).token = dict.tail().token;}),
 		// memory access
         new Code("@",c->ss.push(va(ss.pop()).get(0))),               // w -- n
-        new Code("!",c->{int i=ss.pop(); va(i).set(0,ss.pop());}),   // n w --
+        new Code("!",c->{                                            // n w --
+            int i=ss.pop(), v=ss.pop(); va(i).set(0,v);
+            if (i==0) base=v;}),                                     // no ptr, too bad
         new Code("+!",c->{
             int i=ss.pop(); va(i).set(0,va(i).get(0)+ss.pop());}),   // n w --
         new Code("?",c->

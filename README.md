@@ -24,3 +24,16 @@ The project has been in frozen state since his passing late May 2022 and I've wo
 * embedded
 * reflection
 * object stack + invocation
+
+## Revisions
+### 202107 Dr. Ting's original. Now in ~/orig
+### 202110 Tune up
+    + tighten var names
+    + add Immd class
+    + #exec=>#nest
+### 202507 Tune up
+    + Add Var class
+    + fix allot, does>, s", array!, array@
+    + tune see
+    + use var(0) for base
+    + move GUI to main

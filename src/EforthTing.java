@@ -98,6 +98,7 @@ public class EforthTing {
                     out.print(idiom + "? ");
                     compi=false; ss.clear();}}}
         if (!compi) ss_dump(); }
+    static void spaces(int n) {for(int i=0;i<n;i++)out.print(" ");}
     static String word(String delim) {
         var d=in.delimiter(); in.useDelimiter(delim);       // change delimiter
         pad=in.next(); in.useDelimiter(d); in.next();       // restore delimiter
@@ -164,19 +165,16 @@ public class EforthTing {
         new Code(".",    c->out.print(Integer.toString(ss.pop(),base)+" ")),
         new Code(".r",   c->{
             int n=ss.pop(); String s=Integer.toString(ss.pop(),base);
-            for(int i=0;i+s.length()<n;i++)out.print(" ");
-            out.print(s+" ");}),
+            spaces(n-s.length()); out.print(s+" ");}),
         new Code("u.r",  c->{int n=ss.pop();
             String s=Integer.toString(ss.pop()&0x7fffffff,base);
-            for(int i=0;i+s.length()<n;i++)out.print(" ");
-            out.print(s+" ");}),
-        new Code("type", c->{
-            ss.pop(); int i = ss.pop();                                   // str index
-            out.print(i < 0 ? pad : dict.get(ss.pop()).pf.get(0).str);}),
+            spaces(n-s.length()); out.print(s+" ");}),
+        new Code("type", c->{ss.pop(); int i = ss.pop();                  // str index
+            out.print(i < 0 ? pad : dict.get(i).pf.get(0).str);}),
         new Code("key",  c->ss.push((int)word("").charAt(0))),
         new Code("emit", c->{char b=(char)(int)ss.pop();out.print(""+b);}),
-        new Code("space",c->{out.print(" ");}),
-        new Code("spaces",c->{int n=ss.pop();for(int i=0;i<n;i++)out.print(" ");}),
+        new Code("space",c->spaces(1)),
+        new Code("spaces",c->spaces(ss.pop())),
         // literals
         new Code("[",    c->compi=false),
         new Code("]",    c->compi=true),

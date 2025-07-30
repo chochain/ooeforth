@@ -53,9 +53,9 @@ public class EforthTing {
                 catch (ArithmeticException e) {break;} }}   // exit, 
         public void see(int dp) {
             Consumer<String> tab = s->{
-                int i=dp; out.print("\n"); 
+                int i=dp; out.print('\n'); 
                 while (i-->0) { out.print("  ");} out.print(s);};
-            tab.accept((dp == 0 ? ": " : "")+name+" "); pf.forEach(w->w.see(dp+1));
+            tab.accept((dp == 0 ? ": " : "")+name+' '); pf.forEach(w->w.see(dp+1));
             if (pf1.size()>0) { tab.accept("( 1-- )"); pf1.forEach(w->w.see(dp+1));}
             if (pf2.size()>0) { tab.accept("( 2-- )"); pf2.forEach(w->w.see(dp+1));}
             if (qf.size()>0)  { out.print(" \\ ="); qf.forEach(i->out.print(i.toString()+" "));}
@@ -78,15 +78,14 @@ public class EforthTing {
     static Code tgt() { return dict.get(dict.size()-2).pf.tail(); }
     static ForthList<Integer> va(int i) {                   // variable array
         return dict.get(i<0?dict.size()+i:i).pf.get(0).qf;}
-    static String to_s(int n) {return Integer.toString(n,base)+" ";}
-    static void spaces(int n) {for(int i=0;i<n;i++)out.print(" ");}
-    static void ss_dump() {for (int i:ss) out.print(to_s(i));}
+    static String to_s(int n) {return Integer.toString(n,base);}
+    static void spaces(int n) {for(int i=0;i<Math.max(1,n);i++)out.print(' ');}
+    static void ss_dump() {for (int i:ss) out.print(to_s(i)+' ');}
     // outer interpreter
-    static void outerInterpreter(Scanner sc) {
-        in = sc;
-        while(in.hasNext()) {                               // parse input
+    static void outerInterpreter() {
+        while (in.hasNext()) {
             String idiom=in.next();
-            out.print(" idiom="+idiom+"\n");
+            out.print(" idiom="+idiom+'\n');
             Code w=find(idiom);
             if(w !=null) {                                  // word found
                 if(!compi || w.immd) {
@@ -163,14 +162,14 @@ public class EforthTing {
         new Code("hex",  c->va(0).set(0,base=16)),
         new Code("decimal",c->va(0).set(0,base=10)),
         new Code("bl",   c->ss.push(32)),
-        new Code("cr",   c->out.print("\n")),
-        new Code(".",    c->out.print(to_s(ss.pop()))),
+        new Code("cr",   c->out.print('\n')),
+        new Code(".",    c->out.print(to_s(ss.pop())+' ')),
         new Code(".r",   c->{
             int n=ss.pop(); String s=to_s(ss.pop());
-            spaces(n-s.length()-1); out.print(s);}),
+            spaces(n-s.length()); out.print(s);}),
         new Code("u.r",  c->{
             int n=ss.pop(); String s=to_s(ss.pop()&0x7fffffff);
-            spaces(n-s.length()-1); out.print(s);}),
+            spaces(n-s.length()); out.print(s);}),
         new Code("type", c->{ss.pop(); int i = ss.pop();                  // str index
             out.print(i < 0 ? pad : dict.get(i).pf.get(0).str);}),
         new Code("rx",   c->{line=true; ss.push((int)word("").charAt(0));}),
@@ -328,7 +327,7 @@ public class EforthTing {
         dict.get(0).pf.add(b);
         String APP_NAME  = "ooeForth 2.08";
         JTextArea input  = new JTextArea("",10,60);  // GUI section
-        JTextArea output = new JTextArea(APP_NAME+"\n",10,80);
+        JTextArea output = new JTextArea(APP_NAME+'\n',10,80);
         JScrollPane iscl = new JScrollPane(input);
         JScrollPane oscl = new JScrollPane(output);
         Font font = new Font("Monospaced", Font.PLAIN, 14);
@@ -344,10 +343,8 @@ public class EforthTing {
 		input.addKeyListener(new KeyAdapter() {
 			public void keyTyped(KeyEvent ke) {
                 char c = ke.getKeyChar(); if (line && (c > 13 || c == 8)) return;
-                try (Scanner sc = new Scanner(input.getText())) {
-                    outerInterpreter(sc);
-                    input.setText("");
-                }}});
+                try (Scanner sc = in = new Scanner(input.getText())) { // auto-close
+                    outerInterpreter(); input.setText(""); }}});
         class GuiPrintStream extends PrintStream {   // redirect to TextArea
             GuiPrintStream(OutputStream o) { super(o); }
             @Override public void print(String s) {

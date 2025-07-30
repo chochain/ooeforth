@@ -14,23 +14,23 @@ public class EforthTing {
     static Stack<Integer>  rs   = new Stack<>();
     static ForthList<Code> dict = null;
     static boolean         compi= false;
+    static boolean         line = true;
     static int             base = 10;
     static String          pad;                             // temp string holder
     static class ForthList<T> extends ArrayList<T> {
         ForthList()          {}                             // empty list
         ForthList(List<T> a) { super(a); }                  // initialize with a List (for primitives)
         T tail()             { return get(size()-1); }
-        T prev()             { return get(size()-2).pf.tail(); }
-        T find(String s, Predicate<T> m) {
+        T scan(String s, Predicate<T> m) {
             for (int i=size()-(compi ? 2 : 1); i>=0; i--) { // search array from tail to head
                 T w = get(i); if (m.test(w)) return w;}
             return null;}
-        void drop()          { remove(size()-1); }}
-    // forth words constructor
+        void drop() { remove(size()-1); }}                  // remove last element
+    // forth words constructors
     static class Code {                                      // one size fits all objects
         static int fence=0;
         static Consumer<Code> get_xt(String n) {
-            Code w=dict.find(n,wx->n.equals(wx.name));
+            Code w=dict.scan(n,wx->n.equals(wx.name));
             return w==null ? null : w.xt; }
         public int token=0;
         public String name;
@@ -70,21 +70,24 @@ public class EforthTing {
             xt = var ? dovar : dolit; }}
     // primitive methods
     static void unnest() { throw new ArithmeticException(); }
-    static void spaces(int n) {for(int i=0;i<n;i++)out.print(" ");}
-    static String to_s(int n) {return Integer.toString(n,base)+" ";}
-    static void ss_dump() {for (int i:ss) out.print(to_s(i));}
+    static Code find(String n) {return dict.scan(n,wx->n.equals(wx.name));}
     static Code create() {
-        String n=in.next();
-        if (dict.find(n,wx->n.equals(wx.name))!=null) out.print(n+" reDef?");
+        String n=in.next(); if (find(n)!=null) out.print(n+" reDef?");
         Code w=new Code(n); dict.add(w); return w;}
     static Code compile(Code w) {dict.tail().pf.add(w); return w;}
+    static Code tgt() { return dict.get(dict.size()-2).pf.tail(); }
     static ForthList<Integer> va(int i) {                   // variable array
         return dict.get(i<0?dict.size()+i:i).pf.get(0).qf;}
+    static String to_s(int n) {return Integer.toString(n,base)+" ";}
+    static void spaces(int n) {for(int i=0;i<n;i++)out.print(" ");}
+    static void ss_dump() {for (int i:ss) out.print(to_s(i));}
     // outer interpreter
-    static void outerInterpreter() {
+    static void outerInterpreter(Scanner sc) {
+        in = sc;
         while(in.hasNext()) {                               // parse input
             String idiom=in.next();
-            Code w=dict.find(idiom,wx->idiom.equals(wx.name));
+            out.print(" idiom="+idiom+"\n");
+            Code w=find(idiom);
             if(w !=null) {                                  // word found
                 if(!compi || w.immd) {
                     try { w.nest(); }                       // execute
@@ -99,12 +102,12 @@ public class EforthTing {
                     compi=false; ss.clear();}}}
         if (!compi) {out.print("< ");ss_dump();out.print(">ok\n");}}
     static String word(String delim) {
-        var d=in.delimiter(); in.useDelimiter(delim);       // change delimiter
-        pad=in.next(); in.useDelimiter(d); in.next();       // restore delimiter
+        var d=in.delimiter();
+        in.useDelimiter(delim); pad=in.next();              // read upto delimiter
+        in.useDelimiter(d); in.next();                      // skip off delimiter
         return pad; }
-    static Code find_next() {
-        String s=in.next();
-        Code   w= dict.find(s, wx->s.equals(wx.name));
+    static Code next_word() {
+        Code w=find(in.next());
         if (w==null) throw new NumberFormatException();
         return w; }
     static ForthList<Code> primitives = new ForthList<>(Arrays.asList(
@@ -170,14 +173,18 @@ public class EforthTing {
             spaces(n-s.length()-1); out.print(s);}),
         new Code("type", c->{ss.pop(); int i = ss.pop();                  // str index
             out.print(i < 0 ? pad : dict.get(i).pf.get(0).str);}),
-        new Code("key",  c->ss.push((int)word("").charAt(0))),
+        new Code("rx",   c->{line=true; ss.push((int)word("").charAt(0));}),
+        new Code("rx0",  c->line=false),
+        new Immd("key",  c->{
+            compile(new Code("rx0",false));
+            compile(new Code("rx", false));}),
         new Code("emit", c->{char b=(char)(int)ss.pop();out.print(""+b);}),
         new Code("space",c->spaces(1)),
         new Code("spaces",c->spaces(ss.pop())),
         // literals
         new Code("[",    c->compi=false),
         new Code("]",    c->compi=true),
-        new Code("'",    c->{Code w= find_next(); ss.push(w.token);}),
+        new Code("'",    c->{Code w=next_word(); ss.push(w.token);}),
         new Code("dostr",c->{ss.push(c.token);ss.push(c.str.length());}), // string literal
         new Immd("s\"",  c->{                                             // -- w a
             String s=word("\""); if (s==null) return;
@@ -195,10 +202,10 @@ public class EforthTing {
             compile(new Code("branch", false));
             dict.add(new Code("tmp", false));}),
         new Immd("else", c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             b.pf.addAll(tmp.pf); tmp.pf.clear(); b.stage=1;}),
         new Immd("then", c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             if (b.stage==0) {b.pf.addAll(tmp.pf); dict.drop();}
             else {
                 b.pf1.addAll(tmp.pf);
@@ -216,16 +223,16 @@ public class EforthTing {
             compile(new Code("loops", false));
             dict.add(new Code("tmp", false));}),
         new Immd("while",c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             b.pf.addAll(tmp.pf); tmp.pf.clear(); b.stage=2;}),
         new Immd("repeat",c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             b.pf1.addAll(tmp.pf); dict.drop();}),
         new Immd("again",c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             b.pf.addAll(tmp.pf); dict.drop(); b.stage=1;}),
         new Immd("until",c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             b.pf.addAll(tmp.pf); dict.drop();}),
         // for next
         new Code("cycles",c->{
@@ -241,16 +248,16 @@ public class EforthTing {
             compile(new Code("cycles", false));
             dict.add(new Code("tmp", false));}),
         new Immd("aft",c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             b.pf.addAll(tmp.pf); tmp.pf.clear(); b.stage=3;}),
         new Immd("next",c->{
-            Code b=dict.prev(), tmp=dict.tail();
+            Code b=tgt(), tmp=dict.tail();
             if (b.stage==0) b.pf.addAll(tmp.pf);
             else b.pf2.addAll(tmp.pf);
             dict.drop();}),
         // defining words
         new Code("dodoes", c->{
-            boolean hit=false;
+            var hit=false;
             for (var w : dict.get(c.token).pf) {
                 if (hit) compile(w);
                 else if (w.name=="dodoes") hit=true;}
@@ -287,10 +294,10 @@ public class EforthTing {
             va(-1).drop();}),                                        // no value
         new Immd("does>",c->
             compile(new Code("dodoes", false)).token=dict.tail().token),
-        new Code("to",   c->va(find_next().token).set(0,ss.pop())),
+        new Code("to",   c->va(next_word().token).set(0,ss.pop())),
         new Code("is",c->{                                           // w -- , execute only
             Code src=dict.get(ss.pop());                             // source word
-            Code w=find_next(); dict.get(w.token).pf=src.pf;}),
+            Code w=next_word(); dict.get(w.token).pf=src.pf;}),
         // tools
         new Code("here", c->{ss.push(dict.tail().token);}),
         new Code("words",c->{
@@ -300,7 +307,7 @@ public class EforthTing {
                 sz += w.name.length() + 2;
                 if (sz>64) {out.print("\n");sz=0;}}}),
         new Code(".s",   c->ss_dump()),
-        new Code("see",  c->{Code w=find_next(); w.see(0);}),
+        new Code("see",  c->{Code w=next_word(); w.see(0);}),
         new Code("time", c->{
             LocalTime now=LocalTime.now();
             out.print(now.toString());}),
@@ -309,12 +316,11 @@ public class EforthTing {
             try { Thread.sleep(ss.pop());}
             catch (Exception e) { out.print(e.toString());}}),
         new Code("forget",c->{
-            Code w=find_next();
-            Code b=dict.find("boot", wx->"boot".equals(wx.name));
+            Code w=next_word(), b=find("boot");
             int  n=Math.max(w.token, b.token+1);
             dict.subList(n, dict.size()).clear();}),
         new Code("boot",c->{
-            Code b = dict.find(null, wx->"boot".equals(wx.name));
+            Code b = find("boot");
             dict.subList(b.token+1, dict.size()).clear();})));
 	public static void main(String args[]) {
 		dict = primitives;							 // setup dictionary
@@ -337,11 +343,11 @@ public class EforthTing {
         input.requestFocusInWindow();
 		input.addKeyListener(new KeyAdapter() {
 			public void keyTyped(KeyEvent ke) {
-                char c = ke.getKeyChar(); if (c > 13 || c == 8) return;
-                in = new Scanner(input.getText());
-                outerInterpreter();
-                input.setText("");
-                in.close();}});
+                char c = ke.getKeyChar(); if (line && (c > 13 || c == 8)) return;
+                try (Scanner sc = new Scanner(input.getText())) {
+                    outerInterpreter(sc);
+                    input.setText("");
+                }}});
         class GuiPrintStream extends PrintStream {   // redirect to TextArea
             GuiPrintStream(OutputStream o) { super(o); }
             @Override public void print(String s) {

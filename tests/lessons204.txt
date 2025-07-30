@@ -342,7 +342,7 @@ cr .( example 10.  print the multiplication table )
         2drop ;
 
 : multiply ( -- )
-        cr cr 7 spaces
+        cr cr 6 spaces
         1 11
         for     dup 4 .r 1 +
         next drop 
@@ -393,7 +393,7 @@ variable leap                           ( 1 for a leap year, 0 otherwise. )
 
 : header ( -- )                         ( print title bar )
         cr stars cr 
-        ."    sun     mon     tue     wed     thu     fri     sat"
+        ."     sun     mon     tue     wed     thu     fri     sat"
         cr stars cr                     ( print weekdays )
         ;
 
@@ -409,7 +409,7 @@ variable leap                           ( 1 for a leap year, 0 otherwise. )
         for  2dup + 1 -
                 julian @ + 7 mod        ( which day in the week? )
                 if else cr then         ( start a new line if sunday )
-                dup  7 u.r              ( print day in 8 column field )
+                dup  8 u.r              ( print day in 8 column field )
                 1 +
         next
         2drop ;                         ( discard 1st day in this month )
@@ -565,7 +565,7 @@ cr .( example 15.      ascii character table )
 : character ( n -- )
         dup emit hex dup 3 .r
         octal dup 4 .r
-        decimal 3 .r
+        decimal 4 .r
         2 spaces
         ;
 
@@ -582,6 +582,9 @@ cr .( example 15.      ascii character table )
                 1 +
         next
         drop ;
+
+( type table to print ASCII table )
+table
 
 
 cr .( example 16.      random numbers )

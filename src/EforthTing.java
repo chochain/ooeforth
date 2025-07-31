@@ -84,7 +84,7 @@ public class EforthTing {
     static int bool(boolean f) {return f?-1:0;}
     static void alu(Function<Integer, Integer> m) {ss.push(m.apply(ss.pop()));}
     static void alu(BiFunction<Integer, Integer, Integer> m) {
-        int n=ss.pop(); ss.push(m.apply(ss.pop(),n));}
+        int b=ss.pop(); ss.push(m.apply(ss.pop(),b));}      // a op b
     static void outerInterpreter() {
         while (in.hasNext()) {
             String idiom=in.next();
@@ -92,13 +92,14 @@ public class EforthTing {
             if(w!=null) {                                   // word found
                 if(!compi || w.immd) {
                     try {w.nest();}                         // execute
-                    catch (Exception e) {out.print(e.toString());}}
+                    catch(IllegalArgumentException e) {out.print("?");}
+                    catch(Exception e) {out.print(e.toString());}}
                 else compile(w);}
             else {
                 try {int n=Integer.parseInt(idiom, base);   // not word, try number
                     if (compi) compile(new Var(n, false));  // compile integer literal
                     else ss.push(n);}                       // or push number on stack
-                catch (NumberFormatException  e) {          // catch number errors
+                catch (NumberFormatException e) {           // catch number errors
                     out.print(idiom + "? ");
                     compi=false; ss.clear();}}}
         if (!compi) {out.print("< ");ss_dump();out.print(">ok\n");}}
@@ -109,7 +110,7 @@ public class EforthTing {
         return pad;}
     static Code next_word() {
         Code w=find(in.next());
-        if (w==null) throw new NumberFormatException();
+        if (w==null) throw new IllegalArgumentException();
         return w;}
     static ForthList<Code> primitives = new ForthList<>(Arrays.asList(
         // Stack ops
@@ -139,8 +140,9 @@ public class EforthTing {
         new Code("*",    c->alu((a,b)->a*b)),
         new Code("/",    c->alu((a,b)->a/b)),
         new Code("mod",  c->alu((a,b)->a%b)),
-        new Code("*/",   c->{int n=ss.pop();ss.push(ss.pop()*ss.pop()/n);}),
-        new Code("*/mod",c->{int n=ss.pop();int m=ss.pop()*ss.pop();
+        new Code("*/",   c->alu((a,b)->(ss.pop()*a/b))),
+        new Code("*/mod",c->{
+            int n=ss.pop();int m=ss.pop()*ss.pop();
             ss.push(m%n);ss.push(m/n);}),
         // ALU binary
         new Code("and",  c->alu((a,b)->a&b)),
@@ -181,13 +183,13 @@ public class EforthTing {
         // literals
         new Code("[",    c->compi=false),
         new Code("]",    c->compi=true),
-        new Code("'",    c->{Code w=next_word(); ss.push(w.token);}),
+        new Code("'",    c->ss.push(next_word().token)),
         new Code("dostr",c->{ss.push(c.token);ss.push(c.str.length());}), // string literal
         new Immd("s\"",  c->{                                             // -- w a
             String s=word("\""); if (s==null) return;
             if (!compi) {ss.push(-1); ss.push(s.length());}
             else compile(new Code("dostr",s)).token=dict.tail().token;}), // literal=s
-        new Code("dotstr",c->{out.print(c.str);}),
+        new Code("dotstr",c->out.print(c.str)),
         new Immd(".\"",  c->compile(new Code("dotstr",word("\"")))),      // literal=s
         new Immd("(",    c->word("\\)")),
         new Immd(".(",   c->out.print(word("\\)"))),
@@ -206,7 +208,7 @@ public class EforthTing {
             if (b.stage==0) {b.pf.addAll(tmp.pf); dict.drop();}
             else {
                 b.pf1.addAll(tmp.pf);
-                if (b.stage==1) { dict.drop();}
+                if (b.stage==1) dict.drop();
                 else tmp.pf.clear();}}),
         // loops
         new Code("loops",c->{
@@ -260,15 +262,15 @@ public class EforthTing {
                 else if (w.name=="dodoes") hit=true;}
             unnest();}),
         new Code("exit",c->unnest()),                                // exit interpreter
-        new Code("exec",c->{int n=ss.pop();dict.get(n).nest();}),
+        new Code("exec",c->dict.get(ss.pop()).nest()),
         new Code(":",   c->{create(); compi=true;}),                 // colon
         new Immd(";",   c->compi=false),                             // semicolon
         new Code("variable",c->{
             create();
-            compile(new Var(0, true)).token = dict.tail().token;}),
+            compile(new Var(0, true)).token=dict.tail().token;}),
         new Code("constant",c->{  // n --
             create();
-            compile(new Var(ss.pop(), false)).token = dict.tail().token;}),
+            compile(new Var(ss.pop(), false)).token=dict.tail().token;}),
 		// memory access
         new Code("@",c->ss.push(va(ss.pop()).get(0))),               // w -- n
         new Code("!",c->{                                            // n w --
@@ -276,12 +278,11 @@ public class EforthTing {
             if (i==0) base=v;}),                                     // no ptr, too bad
         new Code("+!",c->{
             int i=ss.pop(); va(i).set(0,va(i).get(0)+ss.pop());}),   // n w --
-        new Code("?",c->out.print(to_s(va(ss.pop()).get(0)))),
-        new Code("array@",c->{                                       // a i -- n
-            int i=ss.pop(); ss.push(va(ss.pop()).get(i));}),
+        new Code("?",     c->out.print(to_s(va(ss.pop()).get(0)))),
+        new Code("array@",c->alu((a,b)->va(a).get(b))),              // a i -- n
         new Code("array!",c->{                                       // n a i --
-            int i=ss.pop(), a=ss.pop(); va(a).set(i,ss.pop());}),
-        new Code(",",c->va(-1).add(ss.pop())),
+            alu((a,b)->va(a).set(b,ss.pop())); ss.pop();}),     
+        new Code(",",     c->va(-1).add(ss.pop())),
         new Code("allot",c->{
            for(int i=0, n=ss.pop();i<n;i++) va(-1).add(0);}),
         // metacompiler
@@ -296,7 +297,7 @@ public class EforthTing {
             Code src=dict.get(ss.pop());                             // source word
             Code w=next_word(); dict.get(w.token).pf=src.pf;}),
         // tools
-        new Code("here", c->{ss.push(dict.tail().token);}),
+        new Code("here", c->ss.push(dict.tail().token)),
         new Code("words",c->{
             for(int i=dict.size()-1,sz=0; i>=0; --i) {
                 Code w=dict.get(i);
@@ -307,9 +308,9 @@ public class EforthTing {
         new Code("see",  c->next_word().see(0)),
         new Code("time", c->out.print(LocalTime.now().toString())),
         new Code("clock",c->ss.push((int)System.currentTimeMillis())),
-        new Code("ms",   c->{                                       // n -- sleep millisec
-            try {Thread.sleep(ss.pop());}
-            catch (Exception e) {out.print(e.toString());}}),
+        new Code("ms",   c->{
+            try {Thread.sleep(ss.pop());}            // n -- sleep n milli-second
+            catch(InterruptedException e){}}),
         new Code("forget",c->{
             int n=Math.max(next_word().token, find("boot").token+1);
             dict.subList(n, dict.size()).clear();}),

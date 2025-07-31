@@ -21,11 +21,11 @@ The project has been in frozen state since his passing late May 2022 and I've wo
     javac -sourcepath src -d tests src/Eforth.java
 
 ## Benchmark
-Performance-wise, running the Forth interpreter on top of the Java Virtual Machine (another interpreter) does not really make sense. JIT doesn't help much of the threading of Forth. It now runs at about 1/10 of pure C++ implementation. see [eForth in C++](https://github.com/chochain/eforth).
+Performance-wise, running the Forth interpreter on top of the Java Virtual Machine (another interpreter) does not really make sense. JIT doesn't help much of the threading of Forth, either. It runs at about 1/10 of pure C++ implementation. see [eForth in C++](https://github.com/chochain/eforth).
 
 On the other hand, if you consider providing an interactive shell or a DSL for your Java app, this might be a path forward. Not yet, but it is certainly possible to extend ooeForth with real object and reflection/invocation to the vast ecosystem of Java libraries. That'll be fun.
 
-Well, there's more. What if Forth word can be compiled directly into Java Bytecode? Dr. Ting also tried an FPGA approach here [eJsv32](https://github.com/chochain/eJsv32).
+Well, there's more. What if Forth words can be compiled directly into Java Bytecode? I did an experimental Bytecode interpreter here [nanoJVM](https://github.com/chochain/nanoJVM). Dr. Ting also tried an FPGA approach here [eJsv32](https://github.com/chochain/eJsv32).
 
 ## TODO
 * embedded

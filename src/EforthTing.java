@@ -81,6 +81,10 @@ public class EforthTing {
     static void spaces(int n) {for(int i=0;i<Math.max(1,n);i++)out.print(" ");}
     static void ss_dump() {for(int i:ss) out.print(to_s(i)+" ");}
     // outer interpreter
+    static int bool(boolean f) {return f?-1:0;}
+    static void alu(Function<Integer, Integer> m) {ss.push(m.apply(ss.pop()));}
+    static void alu(BiFunction<Integer, Integer, Integer> m) {
+        int n=ss.pop(); ss.push(m.apply(ss.pop(),n));}
     static void outerInterpreter() {
         while (in.hasNext()) {
             String idiom=in.next();
@@ -130,31 +134,31 @@ public class EforthTing {
         new Code("2swap",c->{ss.push(ss.remove(ss.size()-4));ss.push(ss.remove(ss.size()-4));}),
         new Code("2drop",c->{ss.pop();ss.pop();}),
         // ALU arithmetic
-        new Code("+",    c->ss.push(ss.pop()+ss.pop())),
-        new Code("-",    c->{int n=ss.pop();ss.push(ss.pop()-n);}),
-        new Code("*",    c->ss.push(ss.pop()*ss.pop())),
-        new Code("/",    c->{int n=ss.pop();ss.push(ss.pop()/n);}),
+        new Code("+",    c->alu((a,b)->a+b)),
+        new Code("-",    c->alu((a,b)->a-b)),
+        new Code("*",    c->alu((a,b)->a*b)),
+        new Code("/",    c->alu((a,b)->a/b)),
+        new Code("mod",  c->alu((a,b)->a%b)),
         new Code("*/",   c->{int n=ss.pop();ss.push(ss.pop()*ss.pop()/n);}),
         new Code("*/mod",c->{int n=ss.pop();int m=ss.pop()*ss.pop();
             ss.push(m%n);ss.push(m/n);}),
-        new Code("mod",  c->{int n=ss.pop();ss.push(ss.pop()%n);}),
         // ALU binary
-        new Code("and",  c->ss.push(ss.pop()&ss.pop())),
-        new Code("or",   c->ss.push(ss.pop()|ss.pop())),
-        new Code("xor",  c->ss.push(ss.pop()^ss.pop())),
-        new Code("negate",c->ss.push(-ss.pop())),
-        new Code("invert",c->ss.push(~ss.pop())),
-        new Code("abs",  c->ss.push(Math.abs(ss.pop()))),
+        new Code("and",  c->alu((a,b)->a&b)),
+        new Code("or",   c->alu((a,b)->a|b)),
+        new Code("xor",  c->alu((a,b)->a^b)),
+        new Code("negate",c->alu(a->-a)),
+        new Code("invert",c->alu(a->~a)),
+        new Code("abs",  c->alu(a->Math.abs(a))),
         // ALU logic
-        new Code("0=",   c->ss.push((ss.pop()==0)?-1:0)),
-        new Code("0<",   c->ss.push((ss.pop()<0)?-1:0)),
-        new Code("0>",   c->ss.push((ss.pop()>0)?-1:0)),
-        new Code("=",    c->{int n=ss.pop();ss.push((ss.pop()==n)?-1:0);}),
-        new Code(">",    c->{int n=ss.pop();ss.push((ss.pop()>n)?-1:0);}),
-        new Code("<",    c->{int n=ss.pop();ss.push((ss.pop()<n)?-1:0);}),
-        new Code("<>",   c->{int n=ss.pop();ss.push((ss.pop()!=n)?-1:0);}),
-        new Code(">=",   c->{int n=ss.pop();ss.push((ss.pop()>=n)?-1:0);}),
-        new Code("<=",   c->{int n=ss.pop();ss.push((ss.pop()<=n)?-1:0);}),
+        new Code("0=",   c->alu(a->bool(a==0))),
+        new Code("0<",   c->alu(a->bool(a<0))),
+        new Code("0>",   c->alu(a->bool(a>0))),
+        new Code("=",    c->alu((a,b)->bool(a==b))),
+        new Code(">",    c->alu((a,b)->bool(a>b))),
+        new Code("<",    c->alu((a,b)->bool(a<b))),
+        new Code("<>",   c->alu((a,b)->bool(a!=b))),
+        new Code(">=",   c->alu((a,b)->bool(a>=b))),
+        new Code("<=",   c->alu((a,b)->bool(a<=b))),
         // output
         new Code("base", c->ss.push(0)),
         new Code("hex",  c->va(0).set(0,base=16)),
@@ -315,7 +319,7 @@ public class EforthTing {
         Var b = new Var(base=10, true); b.token = 0; // use dict[0] as base storage
         dict.get(0).pf.add(b);
         String APP_NAME  = "ooeForth 2.08";
-        JTextArea input  = new JTextArea("",10,60);  // GUI section
+        JTextArea input  = new JTextArea("",10,80);  // GUI section
         JTextArea output = new JTextArea(APP_NAME+'\n',10,80);
         JScrollPane iscl = new JScrollPane(input);
         JScrollPane oscl = new JScrollPane(output);

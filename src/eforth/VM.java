@@ -44,7 +44,7 @@ public class VM {
             }
         }
     }
-    public void parse(String idiom) {                   /// outer interpreter (one line a time)
+    void parse(String idiom) {                          /// outer interpreter (one line a time)
         io.pstr("idiom="+idiom);
         Code w = dict.find(idiom);                      ///> search dictionary
 
@@ -70,7 +70,7 @@ public class VM {
             compile = false; 
         }
     }
-    public Code word(boolean existed) {
+    Code word(boolean existed) {
         String s = io.next_token();
         Code   w = dict.find(s);
         if (existed) {
@@ -82,16 +82,16 @@ public class VM {
         }
         return w;
     }
-    public Code word() { return word(false); }          ///> read token
-    public Code tick() { return word(true); }           ///> find existed word
+    Code word() { return word(false); }                 ///> read token
+    Code tick() { return word(true); }                  ///> find existed word
     ///
     ///> ALU function operators
     ///
-    public int bool(boolean f) { return f ? -1 : 0; }
-    public void alu(Function<Integer, Integer> m) { 
+    int bool(boolean f) { return f ? -1 : 0; }
+    void alu(Function<Integer, Integer> m) { 
         int n=ss.pop(); ss.push(m.apply(n));           
     }
-    public void alu(BiFunction<Integer, Integer, Integer> m) { 
+    void alu(BiFunction<Integer, Integer, Integer> m) { 
         int n=ss.pop(); ss.push(m.apply(ss.pop(), n)); 
     }
     ///
@@ -112,8 +112,8 @@ public class VM {
             dict.find(s).immediate();
         }
     }
-    final LinkedHashMap<String, Consumer<Code>> _vtable = new LinkedHashMap<>() {{
-        put( "bye",   c -> run = false );
+    private final LinkedHashMap<String, Consumer<Code>> _vtable = new LinkedHashMap<>() {{
+        put( "bye",   c -> run = false                      );
         /// stack ops
         put( "dup",   c -> ss.push(ss.peek())               );
         put( "over",  c -> ss.push(ss.get(ss.size()-2))     );
@@ -235,13 +235,13 @@ public class VM {
             dict.add(new Code(" tmp"));
         });
         put( "else",  c -> {
-            Code tmp = dict.tail(1), b = dict.bran();
+            Code tmp = dict.tail(), b = dict.bran();
             b.pf.merge(tmp.pf);
             b.stage = 1; 
             tmp.pf.clear();
         });
         put( "then",  c -> {
-            Code tmp = dict.tail(1), b = dict.bran();
+            Code tmp = dict.tail(), b = dict.bran();
             if (b.stage==0) {
                 b.pf.merge(tmp.pf);
                 dict.drop();
@@ -314,25 +314,22 @@ public class VM {
         put( "dovar", c -> ss.push(c.token)       );   /// string literals
         put( "create",c -> {
             dict.add(word());
-            Code last = dict.tail();
-            Code v    = new Code("dovar", 0);
+            Code v  = new Code("dovar", 0);
+            v.token = dict.tail().token;
             v.qf.drop();
-            v.token = last.token;
-            last.add_w(v);
+            dict.compile(v);
         });
         put( "variable", c -> {
             dict.add(word());
-            Code last = dict.tail();
-            Code v    = new Code("dovar", 0);
-            v.token = last.token;
-            last.add_w(v);
+            Code v  = new Code("dovar", 0);
+            v.token = dict.tail().token;
+            dict.compile(v);
         });
         put( "constant", c -> {                                    /// n --
             dict.add(word());
-            Code last = dict.tail();
-            Code v    = new Code("docon", ss.pop());
-            v.token = last.token;
-            last.add_w(v);
+            Code v = new Code("docon", ss.pop());
+            v.token = dict.tail().token;
+            dict.compile(v);
         });
         put( "@",  c -> {                                          /// w -- n
             Code w = dict.get(ss.pop());
@@ -363,17 +360,25 @@ public class VM {
         });
         put( ",",    c -> {                                        /// n --
             Code w = dict.tail();
-            w.add_var(ss.pop());
+            w.comma(ss.pop());
         });
         put( "allot",c -> {                                        /// n --
             int  n = ss.pop(); 
             Code w = dict.tail();
-            for (int i=0; i < n; i++) w.add_var(0);
+            for (int i=0; i < n; i++) w.comma(0);
         });
-        put( "does", c -> {                                        /// n --
-            Code w = dict.tail();
-//            var src  = dict.get(wp);
-//            last.pf.addAll(src.pf.subList(ip+2, src.pf.size()));
+        put( "dodoes",c -> {
+            var hit = false;
+            for(var w : dict.get(c.token).pf) {
+                if (hit) dict.compile(w);
+                else if (w.name=="dodoes") hit = true;
+            }
+            c.unnest();
+        });
+        put( "does>", c -> {                                       /// n --
+            Code w = new Code("dodoes", false);
+            w.token = dict.tail().token;
+            dict.compile(w);
         });
         put( "to",   c -> {                                        /// n -- , compile only
             Code w = tick(); if (w==null) return;

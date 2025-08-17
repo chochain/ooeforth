@@ -17,17 +17,26 @@ final public class Dict extends FV<Code> {
     ///
     ///> create dictionary with given word list
     ///
-    public void init(LinkedHashMap<String, Consumer<Code>> vt) {
-        vtable = vt;
-        vt.forEach((k, v) -> dict.add(new Code(k)));    ///> create primitive words
+    void init(LinkedHashMap<String, Consumer<Code>> vt) {
+        vtable = vt;                                    ///> vtable (i.e xt lookup)
+        vt.forEach((k, v) -> {
+            Code w = new Code(k);
+            w.xt = v;
+            dict.add(w);                                ///> create primitive words
+        });
     }
     ///
     ///> find - Forth dictionary search 
     ///    @param  str  input string to be search against dictionary words
     ///    @return      Code found; null - if not found
     ///
-    public Code find(String n)  { return dict.scan(n,wx->n.equals(wx.name)); }
-    public Code compile(Code w) { dict.tail().pf.add(w); return w;           }
-    public Code bran()          { return dict.tail(2).pf.tail();             }
-    public Code tgt()           { return dict.get(dict.size()-2).pf.tail();  }
+    Code find(String n, boolean compile)  {
+        for (int i=dict.size()-(compile ? 2 : 1); i>=0; i--) { // search array from tail to head
+            Code w = dict.get(i); if (w.name == n) return w;
+        }
+        return null;
+    }
+    Code find(String n)  { return find(n, false);                 }
+    Code compile(Code w) { dict.tail().pf.add(w); return w;       }
+    Code bran()          { return dict.tail(2).pf.tail();         }
 }

@@ -9,31 +9,20 @@ import eforth.*;
 public class Eforth implements Runnable {                   /// ooeforth
     static final String VERSION = "ooeForth2.0";
     static final String GREET   = "Thank you.";
-    InputStream  input;                                     ///< console input
-    PrintWriter  output;                                    ///< console output
+    IO           io;
     VM           vm;                                        ///< eForth virtual machine
 
-    Eforth(InputStream in, PrintStream out) {
-        input  = in;
-        output = new PrintWriter(out, true);
-        vm     = new VM();
-        vm.setOutput(output);                               ///< pipe output stream
+    public Eforth(InputStream in, PrintStream out) {
+        io = new IO(in, out);
+        vm = new VM(io);
     }
     
     public void run() {
-        try (Scanner cin = new Scanner(input)) {            ///< auto close
-            output.println(VERSION);
-            while (vm.ok()) {
-                String tib = cin.nextLine();
-                vm.parse(tib);
-            }
+        io.pstr(VERSION+"\n");
+        while (io.readline()) {
+            vm.outer();
         }
-        catch (Exception e) { 
-            output.println(e.getMessage()); 
-        }
-        finally {
-            output.println(GREET);
-        }
+        io.pstr(GREET);
     }
 
     public static void main(String args[]) {                /// ooeforth 1.12

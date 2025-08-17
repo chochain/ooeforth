@@ -16,10 +16,10 @@ public class Code {
     public int     stage = 0;
     
     public Consumer<Code> xt = null;              ///< execution token
-    public List<Code>     pf = new List<>();      ///< if..pf..
-    public List<Code>     p1 = new List<>();      ///< else..p1..then
-    public List<Code>     p2 = new List<>();      ///< aft..
-    public List<Integer>  qf = new List<>();      ///< variable storage
+    public FV<Code>       pf = new FV<>();        ///< if..pf..
+    public FV<Code>       p1 = new FV<>();        ///< else..p1..then
+    public FV<Code>       p2 = new FV<>();        ///< aft..
+    public FV<Integer>    qf = new FV<>();        ///< variable storage
     public String         str;                    ///< string storage
     ///
     /// constructors
@@ -32,11 +32,14 @@ public class Code {
     /// accessing method
     ///
     public Code immediate()          { immd=true;      return this; }
-    public Code add(Code w)          { pf.add(w);      return this; }
-    public Code add1(Code w)         { p1.add(w);      return this; }
-    public Code add(List<Code> lst)  { pf.addAll(lst); return this; }
-    public Code add1(List<Code> lst) { p1.addAll(lst); return this; }
-    public Code add2(List<Code> lst) { p2.addAll(lst); return this; }
+    public Code add_w(Code w)        { pf.add(w);      return this; }
+//    public Code add1(Code w)         { p1.add(w);      return this; }
+//    public Code add1(FV<Code> lst)   { p1.addAll(lst); return this; }
+//    public Code add2(FV<Code> lst)   { p2.addAll(lst); return this; }
+
+    public void add_var(int v)        { pf.head().qf.add(v);        }
+    public void set_var(int i, int v) { pf.head().qf.set(i, v);     }
+    public int  get_var(int i)        { return pf.head().qf.get(i); }
     ///
     ///> inner interpreter
     ///
@@ -47,7 +50,7 @@ public class Code {
             catch (ArithmeticException e) {}
         }
     }
-    public void nest(List<Code> pf) {
+    public void nest(FV<Code> pf) {
         for (var w : pf) w.nest();
     }
     public void unnest() { throw new ArithmeticException(); }

@@ -24,13 +24,13 @@ public class Code {
     ///
     ///> constructors
     ///
-    Code(String n, Consumer<Code> f, boolean im) {                  ///< built-in words
+    Code(String n, Consumer<Code> f, boolean im) {                           ///< built-in words
         name=n; xt=f; immd=im; token=fence++;
     }             
-    Code(String n)                    { name=n; token=fence++; }    ///< colon words
-    Code(Consumer<Code> f)            { name=""; xt=f; }            ///< branching nodes
-    Code(Consumer<Code> f, String s)  { name=""; xt=f; str=s; }     ///< string literal
-    Code(Consumer<Code> f, int d)     { name=""; xt=f; qf.add(d); } ///< int literal
+    Code(String n) { name=n; token=fence++; }                                ///< colon words
+    Code(Consumer<Code> f, String n)            { name=n; xt=f; }            ///< branching nodes
+    Code(Consumer<Code> f, String n, int d)     { name=n; xt=f; qf.add(d); } ///< int literal
+    Code(Consumer<Code> f, String n, String s)  { name=n; xt=f; str=s; }     ///< string literal
     ///
     ///> attribute setting
     ///

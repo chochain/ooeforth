@@ -21,12 +21,13 @@ public class IO {
         out = new PrintWriter(o, true);
     }
     public boolean readline() {
-        boolean nx = in.hasNextLine();                ///< any more line to read?
-        String tib = nx ? in.nextLine() : null;       ///< feed input line
-        tok = nx ? new StringTokenizer(tib) : null;   ///< build tokenizer
-        return nx;
+        boolean t = in.hasNextLine();                ///< any more line to read?
+        String tib = t ? in.nextLine() : null;       ///< feed input line
+        System.out.println("tib="+tib);
+        tok = t ? new StringTokenizer(tib) : null;   ///< build tokenizer
+        return tok!=null;
     }
-    public void pstr(String s)   { out.print(s); }
+    public void pstr(String s)   { out.print(s); out.flush(); }
     public void err(Exception e) { e.printStackTrace(); }
     
     String next_token() {
@@ -47,19 +48,20 @@ public class IO {
     }
     void dot(OP op, int n, int r, int base) {
         switch (op) {
-        case CR:   out.println();                            break;
-        case BL:   out.print(Character.toChars(0x20));       break;
-        case EMIT: out.print(Character.toChars(n));          break;
-        case DOT:  out.print(Integer.toString(n, base)+" "); break;
+        case CR:   pstr("\n");                          break;
+        case BL:   out.print(Character.toChars(0x20));  break;
+        case EMIT: out.print(Character.toChars(n));     break;
+        case DOT:  pstr(itoa(n ,base) + " ");           break;
+        case UDOT: pstr(itoa(n&0x7fffffff, base));      break;
         case DOTR: {
             String s = itoa(n, base);
             spaces(r - s.length());
-            out.print(s);
+            pstr(s);
         } break;
         case UDOTR: {
-            String s = itoa(n&0x7fffffff, base);
+            String s = itoa(n & 0x7fffffff, base);
             spaces( r - s.length());
-            out.print(s);
+            pstr(s);
         } break;
         }
     }
@@ -72,7 +74,7 @@ public class IO {
     ///
     void ss_dump(Stack<Integer> ss, int base) {
         cr();
-        for (int n : ss) out.print(Integer.toString(n, base)+" ");
+        for (int n : ss) pstr(itoa(n, base)+" ");
     }
     void words(Dict dict) {
         int i=0, sz = 0; 

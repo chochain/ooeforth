@@ -38,23 +38,25 @@ public class VM {
     ///
     ///> Forth outer interpreter - process one line a time
     ///
-    public void outer() {
-        String idiom;
-        while (run && (idiom=io.next_token()) != null) { ///> fetch next token
+    public boolean outer() {
+        String idiom = io.next_token();
+        while (run && idiom!=null) {                    ///> parse next token
             parse(idiom);
-            if (compile) io.pstr("> ");                 ///> if it's in compile mode
-            else {                                      ///> in interpreter mode
-                io.ss_dump(ss, base);
-                io.pstr("OK ");                         ///> * OK prompt
-            }
+            idiom = io.next_token();
         }
+        if (compile) io.pstr("> ");                     ///> if it's in compile mode
+        else {                                          ///> in interpreter mode
+            io.ss_dump(ss, base);
+            io.pstr("ok ");                             ///> * OK prompt
+        }
+        return run;
     }
     void parse(String idiom) {                          /// outer interpreter (one line a time)
-        io.pstr("idiom="+idiom);
+        io.pstr("idiom="+idiom+" ");
         Code w = dict.find(idiom, compile);             ///> search dictionary
 
         if (w != null) {                                ///> if word found
-            io.pstr(" >> " + w + "\n");
+            io.pstr(" => " + w + "\n");
             if (!compile || w.immd) {                   ///> * check whether in immediate mode 
                 try                 { w.nest();  }      ///> execute immediately
                 catch (Exception e) { io.err(e); }      /// just-in-case it failed
@@ -65,7 +67,7 @@ public class VM {
         ///> word not found, try as a number
         try {
             int n=Integer.parseInt(idiom, base);        ///> * try process as a number
-            io.pstr(" >> "+n);
+            io.pstr(" => "+n+"\n");
             if (compile)                                ///>> in compile mode 
                 dict.compile(new Code(_dolit, n));      ///>> append literal to latest defined word
             else ss.push(n);                            ///>> or, add number to top of stack
@@ -116,23 +118,19 @@ public class VM {
         var hit = false;
         for(var w : dict.get(c.token).pf) {
             if (hit) dict.compile(w);
-            else if (w.name=="dodoes") hit = true;
+            else if (w.name.equals("does>")) hit = true;
         }
         c.unnest();
     };
     void ADD_W(Code w)                    { dict.compile(w);                 }
-    void CODE(String n, Consumer<Code> f) {
-        System.out.printf(" [%d]%s\n", dict.size(), n);
-        dict.add(new Code(n, f, false)); }
-    void IMMD(String n, Consumer<Code> f) {
-        System.out.printf("*[%d]%s\n", dict.size(), n);
-        dict.add(new Code(n, f, true));  }
-    void BRAN(FV<Code> pf) { Code tmp=dict.tail(); pf.merge(tmp.pf); tmp.pf.clear(); }
+    void CODE(String n, Consumer<Code> f) { dict.add(new Code(n, f, false)); }
+    void IMMD(String n, Consumer<Code> f) { dict.add(new Code(n, f, true));  }
+    void BRAN(FV<Code> pf) { Code t=dict.tail(); pf.merge(t.pf); t.pf.clear(); }
     ///
     ///> create dictionary - built-in words
     ///
     void dict_init() {
-        CODE("bye",   c -> run = false                      );
+        CODE("bye",   c -> run = false               );
         ///
         /// @defgroup ALU ops
         /// @{
@@ -371,6 +369,7 @@ public class VM {
         });
         IMMD("does>", c -> {                                       /// n --
             Code w = new Code(_dodoes);
+            w.name  = "does>";
             w.token = dict.tail().token;
             ADD_W(w);
         });

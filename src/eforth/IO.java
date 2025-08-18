@@ -23,21 +23,23 @@ public class IO {
         out = new PrintWriter(o, true);
     }
     public boolean readline() {
-        boolean t = in.hasNextLine();                ///< any more line to read?
-        String tib = t ? in.nextLine() : null;       ///< feed input line
-        System.out.println("tib="+tib);
-        tok = t ? new StringTokenizer(tib) : null;   ///< build tokenizer
-        return tok!=null;
+        boolean t   = in.hasNextLine();                ///< any more line to read?
+        String  tib = t ? in.nextLine() : null;        ///< feed input line
+        pstr("more="+t+" tib="+tib);
+        return t;
     }
     public void pstr(String s)   { out.print(s); out.flush(); }
+    public void pchr(int n)      { out.print(Character.toChars(n)); }
     public void err(Exception e) { e.printStackTrace(); }
     
-    String next_token() {
-        return tok.hasMoreTokens() ? tok.nextToken().trim() : null;
-    }
+    String next_token()       { return in.next(); }    ///< fetch next token from in stream
     String scan(String delim) {
-        pad = tok.nextToken(delim);                  ///< read to delimiter (into pad)
-        return (pad==null) ? null : (pad=pad.substring(1));
+        var d = in.delimiter();                        ///< keep delimiter (space)
+        in.useDelimiter(delim); pad = in.next();       /// * read to delimiter (into pad)
+        pstr("pad="+pad);
+        in.useDelimiter(d);     String x=in.next();    /// * restore and skip off spaces
+        pstr(" x="+x+"\n");
+        return pad;
     }
     ///
     ///> IO methods
@@ -46,15 +48,15 @@ public class IO {
     String pad() { return pad; }
     String itoa(int n, int base) { return Integer.toString(n, base); }
     void spaces(int n) {
-        for (int i=0; i < Math.max(1,n); i++) out.print(" ");
+        for (int i=0; i < Math.max(1,n); i++) pstr(" ");
     }
     void dot(OP op, int n, int r, int base) {
         switch (op) {
-        case CR:   pstr("\n");                          break;
-        case BL:   out.print(Character.toChars(0x20));  break;
-        case EMIT: out.print(Character.toChars(n));     break;
-        case DOT:  pstr(itoa(n ,base) + " ");           break;
-        case UDOT: pstr(itoa(n&0x7fffffff, base));      break;
+        case CR:   pstr("\n");                     break;
+        case BL:   pchr(0x20);                     break;
+        case EMIT: pchr(n);                        break;
+        case DOT:  pstr(itoa(n ,base) + " ");      break;
+        case UDOT: pstr(itoa(n&0x7fffffff, base)); break;
         case DOTR: {
             String s = itoa(n, base);
             spaces(r - s.length());

@@ -56,7 +56,7 @@ public class VM {
         Code w = dict.find(idiom, compile);             ///> search dictionary
 
         if (w != null) {                                ///> found word?
-            io.pstr(" => " + w + "\n");
+            io.pstr(" => " + w.name + "\n");
             if (!compile || w.immd) {                   /// * are we compiling?
                 try                 { w.nest();  }      /// * execute immediately
                 catch (Exception e) { io.err(e); }      /// * just-in-case it failed

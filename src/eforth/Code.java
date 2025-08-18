@@ -61,7 +61,7 @@ public class Code {
     void branch(Stack<Integer> ss) {
         for (var w : ss.pop() != 0 ? pf : p1) w.nest();
     }
-    void loop(Stack<Integer> ss) {
+    void begin(Stack<Integer> ss) {
         switch (stage) {
         case 1:        /// again 
             while (true) {
@@ -83,7 +83,7 @@ public class Code {
             }
         }
     }
-    void cycles(Stack<Integer> rs) {
+    void loop(Stack<Integer> rs) {
         int i = 0;
         if (stage==0) {
             while(true){

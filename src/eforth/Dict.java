@@ -10,20 +10,14 @@ import java.time.*;
 import java.util.function.*;
 
 final public class Dict extends FV<Code> {
-    static LinkedHashMap<String, Consumer<Code>> vtable;
     static Dict dict;
     
-    static Dict get_instance() { return dict; }
+    static Dict get_instance() { return dict; }         ///< singleton
     ///
     ///> create dictionary with given word list
     ///
-    void init(LinkedHashMap<String, Consumer<Code>> vt) {
-        vtable = vt;                                    ///> vtable (i.e xt lookup)
-        vt.forEach((k, v) -> {
-            Code w = new Code(k);
-            w.xt = v;
-            dict.add(w);                                ///> create primitive words
-        });
+    void forget(int t) {
+        dict.subList(t, dict.size()).clear();           ///> forget words
     }
     ///
     ///> find - Forth dictionary search 
@@ -36,7 +30,6 @@ final public class Dict extends FV<Code> {
         }
         return null;
     }
-    Code find(String n)  { return find(n, false);                 }
-    Code compile(Code w) { dict.tail().pf.add(w); return w;       }
-    Code bran()          { return dict.tail(2).pf.tail();         }
+    Code compile(Code w) { dict.tail().pf.add(w); return w; }
+    Code bran()          { return dict.tail(2).pf.tail();   }
 }

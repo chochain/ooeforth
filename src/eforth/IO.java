@@ -4,8 +4,9 @@
 ///
 package eforth;
 
-import java.util.*;
 import java.io.*;
+import java.util.*;
+import java.util.function.*;
 ///
 ///> console input/output
 ///
@@ -15,6 +16,7 @@ public class IO {
     Scanner         in   = null;
     StringTokenizer tok  = null;
     PrintWriter     out  = null;
+    String          pad;
 
     public IO(InputStream i, PrintStream o) {
         in  = new Scanner(i);
@@ -34,14 +36,14 @@ public class IO {
         return tok.hasMoreTokens() ? tok.nextToken().trim() : null;
     }
     String scan(String delim) {
-        String s = tok.nextToken(delim);              ///< read to delimiter
-        tok.nextToken();                              ///< skip a blank
-        return s;
+        pad = tok.nextToken(delim);                  ///< read to delimiter (into pad)
+        return (pad==null) ? null : (pad=pad.substring(1));
     }
     ///
     ///> IO methods
     ///
     int    key() { return (int)tok.nextToken().charAt(0); }
+    String pad() { return pad; }
     String itoa(int n, int base) { return Integer.toString(n, base); }
     void spaces(int n) {
         for (int i=0; i < Math.max(1,n); i++) out.print(" ");
@@ -84,10 +86,24 @@ public class IO {
             if (sz > 64) { cr(); sz = 0; }
         }
     }
-    void see(Code w) {
-        if (w == null) return;
-        
-        pstr(w.name+", "+w.token+", "+w.qf.toString());
-        for (var p : w.pf) pstr(p.name+", "+p.token+", "+p.qf.toString()+"| ");
+    void see(Code c, int dp) {
+        Consumer<String> tab = s->{
+            int i = dp;
+            cr();
+            while (i-->0) { pstr("  "); } pstr(s);
+        };
+        tab.accept((dp == 0 ? ": " : "")+c.name+" ");
+        c.pf.forEach(w -> see(w, dp+1));
+        if (c.p1.size() > 0) {
+            tab.accept("( 1-- )");  c.p1.forEach(w -> see(w, dp+1));
+        }
+        if (c.p2.size() > 0) {
+            tab.accept("( 2-- )");  c.p2.forEach(w -> see(w, dp+1));
+        }
+        if (c.qf.size() > 0)  {
+            pstr(" \\ ="); c.qf.forEach(i -> pstr(i.toString()+" "));
+        }
+        if (c.str != null)  pstr(" \\ =\""+c.str+"\" ");
+        if (dp == 0) pstr("\n;");
     }
 }

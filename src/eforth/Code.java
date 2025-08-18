@@ -24,7 +24,10 @@ public class Code {
     ///
     ///> constructors
     ///
-    Code(String n)             { name=n; token=fence++; }             ///< built-in words
+    Code(String n, Consumer<Code> f, boolean im) {   ///< built-in words
+        name=n; xt=f; immd=im; token=fence++;
+    }             
+    Code(String n)             { name=n; token=fence++; }  ///< built-in words
     Code(String n, boolean b)  { name=n; if (b) token=fence++; }
     Code(String n, int d)      { name=n; qf.add(d); }
     Code(String n, String s)   { name=n; str=s; }

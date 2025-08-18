@@ -13,10 +13,10 @@ import java.util.function.*;
 public class IO {
     enum OP { CR, BL, EMIT, DOT, UDOT, DOTR, UDOTR, SPCS }
         
-    Scanner         in   = null;
-    StringTokenizer tok  = null;
-    PrintWriter     out  = null;
-    String          pad;
+    Scanner     in   = null;                           ///< line input
+    Scanner     tok  = null;                           ///< tokenizer
+    PrintWriter out  = null;                           ///< streaming output
+    String      pad;                                   ///< tmp storage
 
     public IO(InputStream i, PrintStream o) {
         in  = new Scanner(i);
@@ -25,26 +25,27 @@ public class IO {
     public boolean readline() {
         boolean t   = in.hasNextLine();                ///< any more line to read?
         String  tib = t ? in.nextLine() : null;        ///< feed input line
-        pstr("more="+t+" tib="+tib);
+        pstr("more="+t+" tib="+tib+"\n");
+        tok = t ? new Scanner(tib) : null;             ///< create the tokenizer
         return t;
     }
     public void pstr(String s)   { out.print(s); out.flush(); }
     public void pchr(int n)      { out.print(Character.toChars(n)); }
     public void err(Exception e) { e.printStackTrace(); }
     
-    String next_token()       { return in.next(); }    ///< fetch next token from in stream
+    String next_token()       {                        ///< fetch next token from in stream
+        return tok.hasNext() ? tok.next() : null;
+    }   
     String scan(String delim) {
-        var d = in.delimiter();                        ///< keep delimiter (space)
-        in.useDelimiter(delim); pad = in.next();       /// * read to delimiter (into pad)
-        pstr("pad="+pad);
-        in.useDelimiter(d);     String x=in.next();    /// * restore and skip off spaces
-        pstr(" x="+x+"\n");
-        return pad;
+        var d = tok.delimiter();                       ///< keep delimiter (space)
+        tok.useDelimiter(delim); pad = tok.next();     /// * read to delimiter (into pad)
+        tok.useDelimiter(d);     tok.next();           /// * restore and skip off delim
+        return (pad = pad.substring(1));
     }
     ///
     ///> IO methods
     ///
-    int    key() { return (int)tok.nextToken().charAt(0); }
+    int    key() { return (int)next_token().charAt(0); }
     String pad() { return pad; }
     String itoa(int n, int base) { return Integer.toString(n, base); }
     void spaces(int n) {

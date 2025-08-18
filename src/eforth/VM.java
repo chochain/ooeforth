@@ -27,7 +27,8 @@ public class VM {
     ///> functional interfaces
     ///
     public VM(IO io0) {
-        io = io0;
+        io   = io0;
+        dict = Dict.get_instance();
         dict_init();
     }
     ///
@@ -95,122 +96,110 @@ public class VM {
         int n=ss.pop(); ss.push(m.apply(ss.pop(), n)); 
     }
     ///
-    ///> create dictionary with given word list
+    ///> create dictionary - built-in words
     ///
-    private void dict_init() {
-        dict = Dict.get_instance();
-        dict.init(_vtable);
-        
-        final String immd[] = {
-            "if",    "else",  "then",
-            "begin", "again", "until", "while", "repeat", 
-            "for",   "next",  "aft",
-            ";",    "$\"",    ".\"",  "(",    "\\"    
-        };
-        for (String s : immd)  {
-            // dict.add(new Code(s).immediate());
-            dict.find(s).immediate();
-        }
-    }
-    private final LinkedHashMap<String, Consumer<Code>> _vtable = new LinkedHashMap<>() {{
-        put( "bye",   c -> run = false                      );
+    void CODE(String n, Consumer<Code> f) { dict.add(new Code(n, f, false)); }
+    void IMMD(String n, Consumer<Code> f) { dict.add(new Code(n, f, true));  }
+    
+    void dict_init() {
+        CODE("bye",   c -> run = false                      );
         /// stack ops
-        put( "dup",   c -> ss.push(ss.peek())               );
-        put( "over",  c -> ss.push(ss.get(ss.size()-2))     );
-        put( "swap",  c -> ss.add(ss.size()-2,ss.pop())     );
-        put( "rot",   c -> ss.push(ss.remove(ss.size()-3))  );
-        put( "drop",  c -> ss.pop()                         );
-        put( "nip",   c -> ss.remove(ss.size()-2)           );
+        CODE("dup",   c -> ss.push(ss.peek())               );
+        CODE("over",  c -> ss.push(ss.get(ss.size()-2))     );
+        CODE("swap",  c -> ss.add(ss.size()-2,ss.pop())     );
+        CODE("rot",   c -> ss.push(ss.remove(ss.size()-3))  );
+        CODE("drop",  c -> ss.pop()                         );
+        CODE("nip",   c -> ss.remove(ss.size()-2)           );
         /// rstack opos
-        put( ">r",    c -> rs.push(ss.pop())                );
-        put( "r>",    c -> ss.push(rs.pop())                );
-        put( "r@",    c -> ss.push(rs.peek())               );
+        CODE(">r",    c -> rs.push(ss.pop())                );
+        CODE("r>",    c -> ss.push(rs.pop())                );
+        CODE("r@",    c -> ss.push(rs.peek())               );
         /// extra rstack ops
-        put( "push",  c -> rs.push(ss.pop())                );
-        put( "pop",   c -> ss.push(rs.pop())                );
+        CODE("push",  c -> rs.push(ss.pop())                );
+        CODE("pop",   c -> ss.push(rs.pop())                );
         /// extra stack ops
-        put( "2drop", c -> { ss.pop(); ss.pop(); }          );
-        put( "2dup",  c -> ss.addAll(ss.subList(ss.size()-2, ss.size()))     );
-        put( "2over", c -> ss.addAll(ss.subList(ss.size()-4, ss.size()-2))   );
-        put( "4dup",  c -> ss.addAll(ss.subList(ss.size()-4, ss.size()))     );
-        put( "-rot",  c -> {
+        CODE("2drop", c -> { ss.pop(); ss.pop(); }          );
+        CODE("2dup",  c -> ss.addAll(ss.subList(ss.size()-2, ss.size()))     );
+        CODE("2over", c -> ss.addAll(ss.subList(ss.size()-4, ss.size()-2))   );
+        CODE("4dup",  c -> ss.addAll(ss.subList(ss.size()-4, ss.size()))     );
+        CODE("-rot",  c -> {
             ss.push(ss.remove(ss.size()-3));
             ss.push(ss.remove(ss.size()-3));
         });
-        put( "2swap", c -> {
+        CODE("2swap", c -> {
             ss.push(ss.remove(ss.size()-4));
             ss.push(ss.remove(ss.size()-4));
         });
-        put( "pick",  c -> {
+        CODE("pick",  c -> {
             int i = ss.pop(), n = ss.get(ss.size()-i-1);
             ss.push(n);
         });
-        put( "roll",  c -> {
+        CODE("roll",  c -> {
             int i = ss.pop(), n = ss.remove(ss.size()-i-1);
             ss.push(n);
         });
         /// ALU arithmetic ops
-        put( "+",     c -> alu((a,b) -> a + b)       );
-        put( "*",     c -> alu((a,b) -> a * b)       );
-        put( "-",     c -> alu((a,b) -> a - b)       );
-        put( "/",     c -> alu((a,b) -> a / b)       );
-        put( "mod",   c -> alu((a,b) -> a % b)       );
-        put( "*/",    c -> {
+        CODE("+",     c -> alu((a,b) -> a + b)       );
+        CODE("*",     c -> alu((a,b) -> a * b)       );
+        CODE("-",     c -> alu((a,b) -> a - b)       );
+        CODE("/",     c -> alu((a,b) -> a / b)       );
+        CODE("mod",   c -> alu((a,b) -> a % b)       );
+        CODE("*/",    c -> {
             int n = ss.pop();
             ss.push(ss.pop() * ss.pop() / n);
         });
-        put( "*/mod", c -> { 
+        CODE("*/mod", c -> { 
             int n = ss.pop(), m = ss.pop()*ss.pop();
             ss.push(m % n);
             ss.push(m / n);
         });
         /// ALU binary ops
-        put( "and",   c -> alu((a,b) -> a & b)       );
-        put( "or",    c -> alu((a,b) -> a | b)       );
-        put( "xor",   c -> alu((a,b) -> a ^ b)       );
-        put( "negate",c -> alu(a -> -a)              );
+        CODE("and",   c -> alu((a,b) -> a & b)       );
+        CODE("or",    c -> alu((a,b) -> a | b)       );
+        CODE("xor",   c -> alu((a,b) -> a ^ b)       );
+        CODE("negate",c -> alu(a -> -a)              );
         /// ALU logic ops
-        put( "0=",    c -> alu(a -> bool(a==0))      );
-        put( "0<",    c -> alu(a -> bool(a < 0))     );
-        put( "0>",    c -> alu(a -> bool(a > 0))     );
-        put( "=",     c -> alu((a,b) -> bool(a==b))  );
-        put( ">",     c -> alu((a,b) -> bool(a > b)) );
-        put( "<",     c -> alu((a,b) -> bool(a < b)) );
-        put( "<>",    c -> alu((a,b) -> bool(a!=b))  );
-        put( ">=",    c -> alu((a,b) -> bool(a>=b))  );
-        put( "<=",    c -> alu((a,b) -> bool(a>=b))  );
+        CODE("0=",    c -> alu(a -> bool(a==0))      );
+        CODE("0<",    c -> alu(a -> bool(a < 0))     );
+        CODE("0>",    c -> alu(a -> bool(a > 0))     );
+        CODE("=",     c -> alu((a,b) -> bool(a==b))  );
+        CODE(">",     c -> alu((a,b) -> bool(a > b)) );
+        CODE("<",     c -> alu((a,b) -> bool(a < b)) );
+        CODE("<>",    c -> alu((a,b) -> bool(a!=b))  );
+        CODE(">=",    c -> alu((a,b) -> bool(a>=b))  );
+        CODE("<=",    c -> alu((a,b) -> bool(a>=b))  );
         /// IO ops
-        put( "base@", c -> ss.push(base)             );
-        put( "base!", c -> base = ss.pop()           );
-        put( "hex",   c -> base = 16                 );
-        put( "decimal",c-> base = 10                 );
-        put( "cr",    c -> io.cr()                   );
-        put( "bl",    c -> io.bl()                   );
-        put( ".",     c ->
+        CODE("base@", c -> ss.push(base)             );
+        CODE("base!", c -> base = ss.pop()           );
+        CODE("hex",   c -> base = 16                 );
+        CODE("decimal",c-> base = 10                 );
+        CODE("cr",    c -> io.cr()                   );
+        CODE("bl",    c -> io.bl()                   );
+        CODE(".",     c ->
             io.dot(IO.OP.DOT, ss.pop(), base)        );
-        put( ".r",    c -> {
+        CODE(".r",    c -> {
             int n = ss.pop(), r = ss.pop();
             io.dot(IO.OP.DOTR, n, r, base);
         });
-        put( "u.r",   c -> {
+        CODE("u.r",   c -> {
             int n = ss.pop(), r = ss.pop();
             io.dot(IO.OP.UDOTR, n, r, base);
         });
-        put( "key",   c -> io.key()                  );
-        put( "emit",  c ->
+        CODE("key",   c -> io.key()                  );
+        CODE("emit",  c ->
             io.dot(IO.OP.EMIT, ss.pop())             );
-        put( "space", c -> io.spaces(1)              );
-        put( "spaces",c -> io.spaces(ss.pop())       );
+        CODE("space", c -> io.spaces(1)              );
+        CODE("spaces",c -> io.spaces(ss.pop())       );
         /// Compiler words
-        put( "[",     c -> compile = false           );
-        put( "]",     c -> compile = true            );
-        put( "'",     c -> { 
+        CODE("[",     c -> compile = false           );
+        CODE("]",     c -> compile = true            );
+        CODE("'",     c -> { 
             var w = tick(); if (w!=null) ss.push(w.token);
         });
         /// Primitives
-        put( "dolit", c -> ss.push(c.qf.head())      );    /// integer literal
-        put( "dostr", c -> ss.push(c.token)          );    /// string literals
-        put( "s\"",   c -> {                               /// -- w a
+        CODE("dolit", c -> ss.push(c.qf.head())      );    /// integer literal
+        CODE("dostr", c -> ss.push(c.token)          );    /// string literals
+        IMMD("s\"",   c -> {                               /// -- w a
             var last = dict.tail();                        /// last defined word
             ss.push(last.token);
             ss.push(last.pf.size());
@@ -218,29 +207,29 @@ public class VM {
             String s = io.scan("\"");
             dict.add(new Code("dostr", s));                /// literal=s
         });
-        put( "dotstr",c -> io.pstr(c.str)            );
-        put( ".\"",   c -> {
+        CODE("dotstr",c -> io.pstr(c.str)            );
+        IMMD(".\"",   c -> {
             String s = io.scan("\"");
             dict.add(new Code("dotstr", s)           );    /// literal=s
         });
-        put( "(",     c -> io.scan("\\)")            );
-        put( ".(",    c -> io.scan("\\)")            );
-        put( "\\",    c -> io.scan("\n")             );
+        IMMD("(",     c -> io.scan("\\)")            );
+        IMMD(".(",    c -> io.scan("\\)")            );
+        IMMD("\\",    c -> io.scan("\n")             );
         ///
         ///> Branching - if else then
         ///
-        put( "branch",c -> c.branch(ss)              );
-        put( "if",    c -> { 
+        CODE("branch",c -> c.branch(ss)              );
+        IMMD("if",    c -> { 
             dict.add(new Code("branch", false));            /// literal=s
             dict.add(new Code(" tmp"));
         });
-        put( "else",  c -> {
+        IMMD("else",  c -> {
             Code tmp = dict.tail(), b = dict.bran();
             b.pf.merge(tmp.pf);
             b.stage = 1; 
             tmp.pf.clear();
         });
-        put( "then",  c -> {
+        IMMD("then",  c -> {
             Code tmp = dict.tail(), b = dict.bran();
             if (b.stage==0) {
                 b.pf.merge(tmp.pf);
@@ -256,46 +245,46 @@ public class VM {
         ///
         ///> Loop - begin-while-repeat again
         ///
-        put( "loop",  c -> c.loop(ss));
-        put( "begin", c -> { 
+        CODE("loop",  c -> c.loop(ss));
+        IMMD("begin", c -> { 
             dict.add(new Code("loop"));
             dict.add(new Code(" tmp"));
         });
-        put( "while", c -> {
+        IMMD("while", c -> {
             Code tmp = dict.tail(), b = dict.bran();
             b.pf.merge(tmp.pf);
             b.stage = 2; 
             tmp.pf.clear();
         });
-        put( "repeat",c -> {
+        IMMD("repeat",c -> {
             Code tmp = dict.tail(), b = dict.bran();
             b.p1.merge(tmp.pf);
         });
-        put( "again", c -> {
+        IMMD("again", c -> {
             Code tmp = dict.tail(), b = dict.bran();
             b.pf.merge(tmp.pf);
             b.stage=1;
         });
-        put( "until", c -> {
+        IMMD("until", c -> {
             Code tmp = dict.tail(), b = dict.bran();
             b.pf.merge(tmp.pf); dict.drop();
         });
         ///
         ///> Loop - for next
         ///
-        put( "cycles", c -> c.cycles(rs));
-        put( "for",  c -> {
+        CODE("cycles", c -> c.cycles(rs));
+        IMMD("for",  c -> {
             dict.add(new Code(">r"));
             dict.add(new Code("cycles"));
             dict.add(new Code(" tmp"));
         });
-        put( "aft",  c -> {
+        IMMD("aft",  c -> {
             Code tmp = dict.tail(), b = dict.bran();
             b.pf.merge(tmp.pf);
             b.stage = 3; 
             tmp.pf.clear();
         });
-        put( "next", c -> {
+        IMMD("next", c -> {
             Code tmp = dict.tail(), b = dict.bran();
             if (b.stage==0) {
                  b.pf.merge(tmp.pf);
@@ -306,68 +295,68 @@ public class VM {
         ///
         ///> Defining words
         ///
-        put( "exit",  c -> c.unnest()             );   /// marker to exit interpreter
-        put( "exec",  c -> { int n=ss.pop(); dict.get(n).nest(); });
-        put( ":",     c -> { dict.add(word()); compile = true; });
-        put( ";",     c -> compile = false );
-        put( "docon", c -> ss.push(c.qf.head())   );   /// integer literal
-        put( "dovar", c -> ss.push(c.token)       );   /// string literals
-        put( "create",c -> {
+        CODE("exit",  c -> c.unnest()             );   /// marker to exit interpreter
+        CODE("exec",  c -> { int n=ss.pop(); dict.get(n).nest(); });
+        CODE(":",     c -> { dict.add(word()); compile = true; });
+        IMMD(";",     c -> compile = false );
+        CODE("docon", c -> ss.push(c.qf.head())   );   /// integer literal
+        CODE("dovar", c -> ss.push(c.token)       );   /// string literals
+        CODE("create",c -> {
             dict.add(word());
             Code v  = new Code("dovar", 0);
             v.token = dict.tail().token;
             v.qf.drop();
             dict.compile(v);
         });
-        put( "variable", c -> {
+        CODE("variable", c -> {
             dict.add(word());
             Code v  = new Code("dovar", 0);
             v.token = dict.tail().token;
             dict.compile(v);
         });
-        put( "constant", c -> {                                    /// n --
+        CODE("constant", c -> {                                    /// n --
             dict.add(word());
             Code v = new Code("docon", ss.pop());
             v.token = dict.tail().token;
             dict.compile(v);
         });
-        put( "@",  c -> {                                          /// w -- n
+        CODE("@",  c -> {                                          /// w -- n
             Code w = dict.get(ss.pop());
             ss.push(w.get_var(0));
         });
-        put( "!",  c -> {                                          /// n w -- 
+        CODE("!",  c -> {                                          /// n w -- 
             Code w = dict.get(ss.pop());
             w.set_var(0, ss.pop());
         });
-        put( "+!", c -> {                                          /// n w -- 
+        CODE("+!", c -> {                                          /// n w -- 
             Code w = dict.get(ss.pop());
             int  n = w.get_var(0) + ss.pop();
             w.set_var(0, n);
         });
-        put( "?",  c -> {                                          /// w -- 
+        CODE("?",  c -> {                                          /// w -- 
             Code w = dict.get(ss.pop());
             io.dot(IO.OP.DOT, w.get_var(0));
         });
-        put( "array@", c -> {                                      /// w a -- n
+        CODE("array@", c -> {                                      /// w a -- n
             int  a = ss.pop();
             Code w = dict.get(ss.pop());
             ss.push(w.get_var(a));
         });
-        put( "array!", c -> {                                      /// n w a -- 
+        CODE("array!", c -> {                                      /// n w a -- 
             int  a = ss.pop();
             Code w = dict.get(ss.pop());
             w.set_var(a, ss.pop());
         });
-        put( ",",    c -> {                                        /// n --
+        CODE(",",    c -> {                                        /// n --
             Code w = dict.tail();
             w.comma(ss.pop());
         });
-        put( "allot",c -> {                                        /// n --
+        CODE("allot",c -> {                                        /// n --
             int  n = ss.pop(); 
             Code w = dict.tail();
             for (int i=0; i < n; i++) w.comma(0);
         });
-        put( "dodoes",c -> {
+        CODE("dodoes",c -> {
             var hit = false;
             for(var w : dict.get(c.token).pf) {
                 if (hit) dict.compile(w);
@@ -375,39 +364,39 @@ public class VM {
             }
             c.unnest();
         });
-        put( "does>", c -> {                                       /// n --
+        IMMD("does>", c -> {                                       /// n --
             Code w = new Code("dodoes", false);
             w.token = dict.tail().token;
             dict.compile(w);
         });
-        put( "to",   c -> {                                        /// n -- , compile only
+        CODE("to",   c -> {                                        /// n -- , compile only
             Code w = tick(); if (w==null) return;
             w.set_var(0, ss.pop());
         });
-        put( "is",   c -> {                                        /// w -- , execute only
+        CODE("is",   c -> {                                        /// w -- , execute only
             Code w   = tick(); if (w==null) return;
             Code src = dict.get(ss.pop());                         /// source word
             dict.get(w.token).pf = src.pf; 
         });
         //// tools
-        put( "here",  c -> ss.push(Code.fence));
-        put( "words", c -> io.words(dict));
-        put( ".s",    c -> io.ss_dump(ss, base));
-        put( "see",   c -> io.see(tick()));
-        put( "clock", c -> ss.push((int)System.currentTimeMillis()));
-        put( "ms",    c -> {                                       /// n -- delay n milliseconds
+        CODE("here",  c -> ss.push(Code.fence));
+        CODE("words", c -> io.words(dict));
+        CODE(".s",    c -> io.ss_dump(ss, base));
+        CODE("see",   c -> io.see(tick()));
+        CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
+        CODE("ms",    c -> {                                       /// n -- delay n milliseconds
             try { Thread.sleep(ss.pop()); } 
             catch (Exception e) { io.err(e); }
         });
-        put( "forget", c -> {
+        CODE("forget", c -> {
             Code m = dict.find("boot");
             Code w = tick(); if (w==null) return;
             int  t = Math.max(w.token, m.token + 1);
             dict.subList(t, dict.size()).clear();
         });
-        put( "boot",   c -> {
+        CODE("boot",   c -> {
             int t = dict.find("boot").token + 1;
             dict.subList(t, dict.size()).clear();
         });
-    }};
+    }
 }

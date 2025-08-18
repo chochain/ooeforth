@@ -47,7 +47,7 @@ public class VM {
     }
     void parse(String idiom) {                          /// outer interpreter (one line a time)
         io.pstr("idiom="+idiom);
-        Code w = dict.find(idiom);                      ///> search dictionary
+        Code w = dict.find(idiom, compile);             ///> search dictionary
 
         if (w != null) {                                ///> if word found
             io.pstr(" >> " + w + "\n");
@@ -63,7 +63,7 @@ public class VM {
             int n=Integer.parseInt(idiom, base);        ///> * try process as a number
             io.pstr(" >> "+n);
             if (compile)                                ///>> in compile mode 
-                dict.compile(new Code("dolit", n));     ///>> append literal to latest defined word
+                dict.compile(new Code(_dolit, n));      ///>> append literal to latest defined word
             else ss.push(n);                            ///>> or, add number to top of stack
         }                                            
         catch (NumberFormatException ex) {              ///> if it's not a number
@@ -73,7 +73,7 @@ public class VM {
     }
     Code word(boolean existed) {
         String s = io.next_token();
-        Code   w = dict.find(s);
+        Code   w = dict.find(s, compile);
         if (existed) {
             if (w==null) io.pstr(s+"?");
         }
@@ -86,21 +86,41 @@ public class VM {
     Code word() { return word(false); }                 ///> read token
     Code tick() { return word(true); }                  ///> find existed word
     ///
-    ///> ALU function operators
+    ///> ALU funtions (aka. macros)
     ///
-    int bool(boolean f) { return f ? -1 : 0; }
-    void alu(Function<Integer, Integer> m) { 
-        int n=ss.pop(); ss.push(m.apply(n));           
+    int  BOOL(boolean f) { return f ? -1 : 0; }
+    void ALU(Function<Integer, Integer> m) { 
+        int n = ss.pop(); ss.push(m.apply(n));           
     }
-    void alu(BiFunction<Integer, Integer, Integer> m) { 
-        int n=ss.pop(); ss.push(m.apply(ss.pop(), n)); 
+    void ALU(BiFunction<Integer, Integer, Integer> m) { 
+        int n = ss.pop(); ss.push(m.apply(ss.pop(), n)); 
     }
+    ///
+    ///> built-in words and macros
+    ///
+    Consumer<Code> _tmp    = c -> { /* do nothing */ };
+    Consumer<Code> _dolit  = c -> ss.push(c.qf.head());
+    Consumer<Code> _dostr  = c -> ss.push(c.token);
+    Consumer<Code> _dotstr = c -> io.pstr(c.str);
+    Consumer<Code> _branch = c -> c.branch(ss);
+    Consumer<Code> _loop   = c -> c.loop(ss);
+    Consumer<Code> _cycles = c -> c.cycles(rs);
+    Consumer<Code> _tor    = c -> rs.push(ss.pop());
+    Consumer<Code> _dovar  = c -> ss.push(c.token);
+    Consumer<Code> _dodoes = c -> {
+        var hit = false;
+        for(var w : dict.get(c.token).pf) {
+            if (hit) dict.compile(w);
+            else if (w.name=="dodoes") hit = true;
+        }
+        c.unnest();
+    };
+    void ADD_W(Code w)                    { dict.compile(w);                 }
+    void CODE(String n, Consumer<Code> f) { dict.add(new Code(n, f, false)); }
+    void IMMD(String n, Consumer<Code> f) { dict.add(new Code(n, f, true));  }
     ///
     ///> create dictionary - built-in words
     ///
-    void CODE(String n, Consumer<Code> f) { dict.add(new Code(n, f, false)); }
-    void IMMD(String n, Consumer<Code> f) { dict.add(new Code(n, f, true));  }
-    
     void dict_init() {
         CODE("bye",   c -> run = false                      );
         /// stack ops
@@ -139,11 +159,11 @@ public class VM {
             ss.push(n);
         });
         /// ALU arithmetic ops
-        CODE("+",     c -> alu((a,b) -> a + b)       );
-        CODE("*",     c -> alu((a,b) -> a * b)       );
-        CODE("-",     c -> alu((a,b) -> a - b)       );
-        CODE("/",     c -> alu((a,b) -> a / b)       );
-        CODE("mod",   c -> alu((a,b) -> a % b)       );
+        CODE("+",     c -> ALU((a,b) -> a + b)       );
+        CODE("*",     c -> ALU((a,b) -> a * b)       );
+        CODE("-",     c -> ALU((a,b) -> a - b)       );
+        CODE("/",     c -> ALU((a,b) -> a / b)       );
+        CODE("mod",   c -> ALU((a,b) -> a % b)       );
         CODE("*/",    c -> {
             int n = ss.pop();
             ss.push(ss.pop() * ss.pop() / n);
@@ -154,20 +174,20 @@ public class VM {
             ss.push(m / n);
         });
         /// ALU binary ops
-        CODE("and",   c -> alu((a,b) -> a & b)       );
-        CODE("or",    c -> alu((a,b) -> a | b)       );
-        CODE("xor",   c -> alu((a,b) -> a ^ b)       );
-        CODE("negate",c -> alu(a -> -a)              );
+        CODE("and",   c -> ALU((a,b) -> a & b)       );
+        CODE("or",    c -> ALU((a,b) -> a | b)       );
+        CODE("xor",   c -> ALU((a,b) -> a ^ b)       );
+        CODE("negate",c -> ALU(a -> -a)              );
         /// ALU logic ops
-        CODE("0=",    c -> alu(a -> bool(a==0))      );
-        CODE("0<",    c -> alu(a -> bool(a < 0))     );
-        CODE("0>",    c -> alu(a -> bool(a > 0))     );
-        CODE("=",     c -> alu((a,b) -> bool(a==b))  );
-        CODE(">",     c -> alu((a,b) -> bool(a > b)) );
-        CODE("<",     c -> alu((a,b) -> bool(a < b)) );
-        CODE("<>",    c -> alu((a,b) -> bool(a!=b))  );
-        CODE(">=",    c -> alu((a,b) -> bool(a>=b))  );
-        CODE("<=",    c -> alu((a,b) -> bool(a>=b))  );
+        CODE("0=",    c -> ALU(a -> BOOL(a==0))      );
+        CODE("0<",    c -> ALU(a -> BOOL(a < 0))     );
+        CODE("0>",    c -> ALU(a -> BOOL(a > 0))     );
+        CODE("=",     c -> ALU((a,b) -> BOOL(a==b))  );
+        CODE(">",     c -> ALU((a,b) -> BOOL(a > b)) );
+        CODE("<",     c -> ALU((a,b) -> BOOL(a < b)) );
+        CODE("<>",    c -> ALU((a,b) -> BOOL(a!=b))  );
+        CODE(">=",    c -> ALU((a,b) -> BOOL(a>=b))  );
+        CODE("<=",    c -> ALU((a,b) -> BOOL(a>=b))  );
         /// IO ops
         CODE("base@", c -> ss.push(base)             );
         CODE("base!", c -> base = ss.pop()           );
@@ -197,20 +217,17 @@ public class VM {
             var w = tick(); if (w!=null) ss.push(w.token);
         });
         /// Primitives
-        CODE("dolit", c -> ss.push(c.qf.head())      );    /// integer literal
-        CODE("dostr", c -> ss.push(c.token)          );    /// string literals
         IMMD("s\"",   c -> {                               /// -- w a
             var last = dict.tail();                        /// last defined word
             ss.push(last.token);
             ss.push(last.pf.size());
             
             String s = io.scan("\"");
-            dict.add(new Code("dostr", s));                /// literal=s
+            ADD_W(new Code(_dostr, s));                    /// literal=s
         });
-        CODE("dotstr",c -> io.pstr(c.str)            );
         IMMD(".\"",   c -> {
             String s = io.scan("\"");
-            dict.add(new Code("dotstr", s)           );    /// literal=s
+            ADD_W(new Code(_dotstr, s));                   /// literal=s
         });
         IMMD("(",     c -> io.scan("\\)")            );
         IMMD(".(",    c -> io.scan("\\)")            );
@@ -218,10 +235,9 @@ public class VM {
         ///
         ///> Branching - if else then
         ///
-        CODE("branch",c -> c.branch(ss)              );
         IMMD("if",    c -> { 
-            dict.add(new Code("branch", false));            /// literal=s
-            dict.add(new Code(" tmp"));
+            ADD_W(new Code(_branch));                      /// literal=s
+            ADD_W(new Code(_tmp));
         });
         IMMD("else",  c -> {
             Code tmp = dict.tail(), b = dict.bran();
@@ -233,7 +249,7 @@ public class VM {
             Code tmp = dict.tail(), b = dict.bran();
             if (b.stage==0) {
                 b.pf.merge(tmp.pf);
-                dict.drop();
+                dict.tail().pf.drop();
             } 
             else {
                 b.p1.merge(tmp.pf);
@@ -245,10 +261,9 @@ public class VM {
         ///
         ///> Loop - begin-while-repeat again
         ///
-        CODE("loop",  c -> c.loop(ss));
         IMMD("begin", c -> { 
-            dict.add(new Code("loop"));
-            dict.add(new Code(" tmp"));
+            ADD_W(new Code(_loop));
+            ADD_W(new Code(_tmp));
         });
         IMMD("while", c -> {
             Code tmp = dict.tail(), b = dict.bran();
@@ -272,11 +287,10 @@ public class VM {
         ///
         ///> Loop - for next
         ///
-        CODE("cycles", c -> c.cycles(rs));
         IMMD("for",  c -> {
-            dict.add(new Code(">r"));
-            dict.add(new Code("cycles"));
-            dict.add(new Code(" tmp"));
+            ADD_W(new Code(_tor));
+            ADD_W(new Code(_cycles));
+            ADD_W(new Code(_tmp));
         });
         IMMD("aft",  c -> {
             Code tmp = dict.tail(), b = dict.bran();
@@ -295,28 +309,30 @@ public class VM {
         ///
         ///> Defining words
         ///
-        CODE("exit",  c -> c.unnest()             );   /// marker to exit interpreter
-        CODE("exec",  c -> { int n=ss.pop(); dict.get(n).nest(); });
-        CODE(":",     c -> { dict.add(word()); compile = true; });
-        IMMD(";",     c -> compile = false );
-        CODE("docon", c -> ss.push(c.qf.head())   );   /// integer literal
-        CODE("dovar", c -> ss.push(c.token)       );   /// string literals
+        CODE("exit",  c -> c.unnest()                );   /// marker to exit interpreter
+        CODE("exec",  c -> dict.get(ss.pop()).nest() );
+        CODE(":",     c -> {
+            dict.add(word()); compile = true;
+        });
+        IMMD(";",     c -> compile = false           );
+        CODE("docon", c -> ss.push(c.qf.head())      );   /// integer literal
+        CODE("dovar", c -> ss.push(c.token)          );   /// string literals
         CODE("create",c -> {
             dict.add(word());
-            Code v  = new Code("dovar", 0);
+            Code v  = new Code(_dovar, 0);
             v.token = dict.tail().token;
             v.qf.drop();
-            dict.compile(v);
+            ADD_W(v);
         });
         CODE("variable", c -> {
             dict.add(word());
-            Code v  = new Code("dovar", 0);
+            Code v  = new Code(_dovar, 0);
             v.token = dict.tail().token;
             dict.compile(v);
         });
         CODE("constant", c -> {                                    /// n --
             dict.add(word());
-            Code v = new Code("docon", ss.pop());
+            Code v = new Code(_dolit, ss.pop());
             v.token = dict.tail().token;
             dict.compile(v);
         });
@@ -356,18 +372,10 @@ public class VM {
             Code w = dict.tail();
             for (int i=0; i < n; i++) w.comma(0);
         });
-        CODE("dodoes",c -> {
-            var hit = false;
-            for(var w : dict.get(c.token).pf) {
-                if (hit) dict.compile(w);
-                else if (w.name=="dodoes") hit = true;
-            }
-            c.unnest();
-        });
         IMMD("does>", c -> {                                       /// n --
-            Code w = new Code("dodoes", false);
+            Code w = new Code(_dodoes);
             w.token = dict.tail().token;
-            dict.compile(w);
+            ADD_W(w);
         });
         CODE("to",   c -> {                                        /// n -- , compile only
             Code w = tick(); if (w==null) return;
@@ -389,14 +397,13 @@ public class VM {
             catch (Exception e) { io.err(e); }
         });
         CODE("forget", c -> {
-            Code m = dict.find("boot");
+            Code m = dict.find("boot", compile);
             Code w = tick(); if (w==null) return;
-            int  t = Math.max(w.token, m.token + 1);
-            dict.subList(t, dict.size()).clear();
+            dict.forget(Math.max(w.token, m.token + 1));
         });
         CODE("boot",   c -> {
-            int t = dict.find("boot").token + 1;
-            dict.subList(t, dict.size()).clear();
+            int t = dict.find("boot", compile).token + 1;
+            dict.forget(t);
         });
     }
 }

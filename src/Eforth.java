@@ -6,8 +6,7 @@ import java.io.*;
 import eforth.*;
 
 public class Eforth implements Runnable {                   /// ooeforth
-    static final String APP_NAME = "ooeForth2.0\n";
-    static final String GREET    = "Thank you.\n";
+    static final String APP_NAME = "ooeForth v2";
     IO           io;
     VM           vm;                                        ///< eForth virtual machine
 
@@ -17,11 +16,11 @@ public class Eforth implements Runnable {                   /// ooeforth
     }
     
     public void run() {
-        io.pstr(APP_NAME);
+        io.pstr(APP_NAME+"\n");
         while (io.readline()) {
-            vm.outer();
+            if (!vm.outer()) break;
         }
-        io.pstr(GREET);
+        io.pstr(APP_NAME+" Done.\n");
     }
 
     public static void main(String args[]) {                /// main app

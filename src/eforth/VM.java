@@ -10,8 +10,9 @@ import java.time.*;
 import java.util.function.*;
 
 public class VM {
-    Dict dict;
-    IO   io;
+    Dict   dict;
+    IO     io;
+    Random rnd = new Random();      ///< random number generator
     ///
     ///> Forth stacks and dictionary
     ///
@@ -30,6 +31,7 @@ public class VM {
         io   = io0;
         dict = Dict.get_instance();
         dict_init();
+        io.words(dict);
     }
     ///
     ///> Forth outer interpreter - process one line a time
@@ -78,7 +80,7 @@ public class VM {
             if (w==null) io.pstr(s+"?");
         }
         else {
-            if (w==null) io.pstr(s+" reDef?");
+            if (w!=null) io.pstr(s+" reDef?");
             w = new Code(s);                            ///> create new Code
         }
         return w;
@@ -88,7 +90,8 @@ public class VM {
     ///
     ///> ALU funtions (aka. macros)
     ///
-    int  BOOL(boolean f) { return f ? -1 : 0; }
+    int  BOOL(boolean f) { return f ? -1 : 0;     }
+    int  UINT(int v)     { return v & 0x7fffffff; }
     void ALU(Function<Integer, Integer> m) { 
         int n = ss.pop(); ss.push(m.apply(n));           
     }
@@ -103,8 +106,8 @@ public class VM {
     Consumer<Code> _dostr  = c -> ss.push(c.token);
     Consumer<Code> _dotstr = c -> io.pstr(c.str);
     Consumer<Code> _branch = c -> c.branch(ss);
-    Consumer<Code> _loop   = c -> c.loop(ss);
-    Consumer<Code> _cycles = c -> c.cycles(rs);
+    Consumer<Code> _begin  = c -> c.begin(ss);
+    Consumer<Code> _loop   = c -> c.loop(rs);
     Consumer<Code> _tor    = c -> rs.push(ss.pop());
     Consumer<Code> _dovar  = c -> ss.push(c.token);
     Consumer<Code> _dodoes = c -> {
@@ -116,49 +119,21 @@ public class VM {
         c.unnest();
     };
     void ADD_W(Code w)                    { dict.compile(w);                 }
-    void CODE(String n, Consumer<Code> f) { dict.add(new Code(n, f, false)); }
-    void IMMD(String n, Consumer<Code> f) { dict.add(new Code(n, f, true));  }
+    void CODE(String n, Consumer<Code> f) {
+        System.out.printf(" [%d]%s\n", dict.size(), n);
+        dict.add(new Code(n, f, false)); }
+    void IMMD(String n, Consumer<Code> f) {
+        System.out.printf("*[%d]%s\n", dict.size(), n);
+        dict.add(new Code(n, f, true));  }
+    void BRAN(FV<Code> pf) { Code tmp=dict.tail(); pf.merge(tmp.pf); tmp.pf.clear(); }
     ///
     ///> create dictionary - built-in words
     ///
     void dict_init() {
         CODE("bye",   c -> run = false                      );
-        /// stack ops
-        CODE("dup",   c -> ss.push(ss.peek())               );
-        CODE("over",  c -> ss.push(ss.get(ss.size()-2))     );
-        CODE("swap",  c -> ss.add(ss.size()-2,ss.pop())     );
-        CODE("rot",   c -> ss.push(ss.remove(ss.size()-3))  );
-        CODE("drop",  c -> ss.pop()                         );
-        CODE("nip",   c -> ss.remove(ss.size()-2)           );
-        /// rstack opos
-        CODE(">r",    c -> rs.push(ss.pop())                );
-        CODE("r>",    c -> ss.push(rs.pop())                );
-        CODE("r@",    c -> ss.push(rs.peek())               );
-        /// extra rstack ops
-        CODE("push",  c -> rs.push(ss.pop())                );
-        CODE("pop",   c -> ss.push(rs.pop())                );
-        /// extra stack ops
-        CODE("2drop", c -> { ss.pop(); ss.pop(); }          );
-        CODE("2dup",  c -> ss.addAll(ss.subList(ss.size()-2, ss.size()))     );
-        CODE("2over", c -> ss.addAll(ss.subList(ss.size()-4, ss.size()-2))   );
-        CODE("4dup",  c -> ss.addAll(ss.subList(ss.size()-4, ss.size()))     );
-        CODE("-rot",  c -> {
-            ss.push(ss.remove(ss.size()-3));
-            ss.push(ss.remove(ss.size()-3));
-        });
-        CODE("2swap", c -> {
-            ss.push(ss.remove(ss.size()-4));
-            ss.push(ss.remove(ss.size()-4));
-        });
-        CODE("pick",  c -> {
-            int i = ss.pop(), n = ss.get(ss.size()-i-1);
-            ss.push(n);
-        });
-        CODE("roll",  c -> {
-            int i = ss.pop(), n = ss.remove(ss.size()-i-1);
-            ss.push(n);
-        });
-        /// ALU arithmetic ops
+        ///
+        /// @defgroup ALU ops
+        /// @{
         CODE("+",     c -> ALU((a,b) -> a + b)       );
         CODE("*",     c -> ALU((a,b) -> a * b)       );
         CODE("-",     c -> ALU((a,b) -> a - b)       );
@@ -173,12 +148,23 @@ public class VM {
             ss.push(m % n);
             ss.push(m / n);
         });
-        /// ALU binary ops
         CODE("and",   c -> ALU((a,b) -> a & b)       );
         CODE("or",    c -> ALU((a,b) -> a | b)       );
         CODE("xor",   c -> ALU((a,b) -> a ^ b)       );
+        CODE("abs",   c -> ALU(a -> Math.abs(a))     );
         CODE("negate",c -> ALU(a -> -a)              );
-        /// ALU logic ops
+        CODE("invert",c -> ALU(a -> ~UINT(a))        );
+        CODE("rshift",c -> ALU((a,b) -> a >>> b)     );
+        CODE("lshift",c -> ALU((a,b) -> a << b)      );
+        CODE("max",   c -> ALU((a,b) -> Math.max(a,b)));
+        CODE("min",   c -> ALU((a,b) -> Math.min(a,b)));
+        CODE("2*",    c -> ALU(a -> a *= 2)          );
+        CODE("2/",    c -> ALU(a -> a /= 2)          );
+        CODE("1+",    c -> ALU(a -> a += 1)          );
+        CODE("1-",    c -> ALU(a -> a -= 1)          );
+        /// @}
+        /// @defgroup Logic ops
+        /// @{
         CODE("0=",    c -> ALU(a -> BOOL(a==0))      );
         CODE("0<",    c -> ALU(a -> BOOL(a < 0))     );
         CODE("0>",    c -> ALU(a -> BOOL(a > 0))     );
@@ -188,15 +174,63 @@ public class VM {
         CODE("<>",    c -> ALU((a,b) -> BOOL(a!=b))  );
         CODE(">=",    c -> ALU((a,b) -> BOOL(a>=b))  );
         CODE("<=",    c -> ALU((a,b) -> BOOL(a>=b))  );
-        /// IO ops
-        CODE("base@", c -> ss.push(base)             );
-        CODE("base!", c -> base = ss.pop()           );
-        CODE("hex",   c -> base = 16                 );
-        CODE("decimal",c-> base = 10                 );
-        CODE("cr",    c -> io.cr()                   );
-        CODE("bl",    c -> io.bl()                   );
-        CODE(".",     c ->
-            io.dot(IO.OP.DOT, ss.pop(), base)        );
+        CODE("u<",    c -> ALU((a,b) -> BOOL(UINT(a) < UINT(b))));
+        CODE("u>",    c -> ALU((a,b) -> BOOL(UINT(a) > UINT(b))));
+        /// @}
+        /// @defgroup Data Stack ops
+        /// @brief - opcode sequence can be changed below this line
+        /// @{
+        CODE("dup",   c -> ss.push(ss.peek())               );
+        CODE("drop",  c -> ss.pop()                         );
+        CODE("over",  c -> ss.push(ss.get(ss.size()-2))     );
+        CODE("swap",  c -> ss.add(ss.size()-2,ss.pop())     );
+        CODE("rot",   c -> ss.push(ss.remove(ss.size()-3))  );
+        CODE("-rot",  c -> {
+            ss.push(ss.remove(ss.size()-3));
+            ss.push(ss.remove(ss.size()-3));
+        });
+        CODE("pick",  c -> {
+            int i = ss.pop(), n = ss.get(ss.size()-i-1);
+            ss.push(n);
+        });
+        CODE("roll",  c -> {
+            int i = ss.pop(), n = ss.remove(ss.size()-i-1);
+            ss.push(n);
+        });
+        CODE("nip",   c -> ss.remove(ss.size()-2)                          );
+        CODE("?dup",  c -> { if (ss.peek()!=0) ss.push(ss.peek()); }       );
+        /// @}
+        /// @defgroup Data Stack ops - double
+        /// @{
+        CODE("2dup",  c -> ss.addAll(ss.subList(ss.size()-2, ss.size()))   );
+        CODE("2drop", c -> { ss.pop(); ss.pop(); }                         );
+        CODE("2swap", c -> {
+            ss.push(ss.remove(ss.size()-4));
+            ss.push(ss.remove(ss.size()-4));
+        });
+        CODE("2over", c -> ss.addAll(ss.subList(ss.size()-4, ss.size()-2)) );
+        /// @}
+        /// @defgroup Return Stack ops
+        /// @{
+        CODE(">r",    c -> rs.push(ss.pop())               );
+        CODE("r>",    c -> ss.push(rs.pop())               );
+        CODE("r@",    c -> ss.push(rs.peek())              );
+        /// @}
+        /// @defgroup Return Stack ops - Extra
+        /// @{
+        CODE("push",  c -> rs.push(ss.pop())               );
+        CODE("pop",   c -> ss.push(rs.pop())               );
+        /// @}
+        /// @defgroup IO ops
+        /// @{
+        CODE("base@", c -> ss.push(base)                   );
+        CODE("base!", c -> base = ss.pop()                 );
+        CODE("hex",   c -> base = 16                       );
+        CODE("decimal",c-> base = 10                       );
+        CODE("cr",    c -> io.cr()                         );
+        CODE("bl",    c -> io.bl()                         );
+        CODE(".",     c -> io.dot(IO.OP.DOT, ss.pop(), base) );
+        CODE("u.",    c -> io.dot(IO.OP.UDOT, ss.pop(), base));
         CODE(".r",    c -> {
             int n = ss.pop(), r = ss.pop();
             io.dot(IO.OP.DOTR, n, r, base);
@@ -205,20 +239,19 @@ public class VM {
             int n = ss.pop(), r = ss.pop();
             io.dot(IO.OP.UDOTR, n, r, base);
         });
-        CODE("key",   c -> io.key()                  );
-        CODE("emit",  c ->
-            io.dot(IO.OP.EMIT, ss.pop())             );
-        CODE("space", c -> io.spaces(1)              );
-        CODE("spaces",c -> io.spaces(ss.pop())       );
-        /// Compiler words
-        CODE("[",     c -> compile = false           );
-        CODE("]",     c -> compile = true            );
-        CODE("'",     c -> { 
-            var w = tick(); if (w!=null) ss.push(w.token);
-        });
-        /// Primitives
+        CODE("type",  c -> { ss.pop(); io.pstr(c.str); }  );
+        CODE("key",   c -> io.key()                       );
+        CODE("emit",  c -> io.dot(IO.OP.EMIT, ss.pop())   );
+        CODE("space", c -> io.spaces(1)                   );
+        CODE("spaces",c -> io.spaces(ss.pop())            );
+        /// @}
+        /// @defgroup Literal ops
+        /// @{
+        IMMD("(",     c -> io.scan("\\)")            );
+        IMMD(".(",    c -> io.scan("\\)")            );
+        IMMD("\\",    c -> io.scan("\n")             );
         IMMD("s\"",   c -> {                               /// -- w a
-            var last = dict.tail();                        /// last defined word
+            Code last = dict.tail();                       /// last defined word
             ss.push(last.token);
             ss.push(last.pf.size());
             
@@ -229,101 +262,87 @@ public class VM {
             String s = io.scan("\"");
             ADD_W(new Code(_dotstr, s));                   /// literal=s
         });
-        IMMD("(",     c -> io.scan("\\)")            );
-        IMMD(".(",    c -> io.scan("\\)")            );
-        IMMD("\\",    c -> io.scan("\n")             );
-        ///
-        ///> Branching - if else then
-        ///
+        /// @}
+        /// @defgroup Branching ops
+        /// @brief - if...then, if...else...then
+        ///     dict[-2]->pf[0,1,2,...,-1] as *last
+        ///                              \--->pf[...] if  <--+ merge
+        ///                               \-->p1[...] else   |
+        ///     dict[-1]->pf[...] as *tmp -------------------+
+        /// @{
         IMMD("if",    c -> { 
             ADD_W(new Code(_branch));                      /// literal=s
-            ADD_W(new Code(_tmp));
+            dict.add(new Code(_tmp));
         });
         IMMD("else",  c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            b.pf.merge(tmp.pf);
+            Code b = dict.bran();
+            BRAN(b.pf);
             b.stage = 1; 
-            tmp.pf.clear();
         });
         IMMD("then",  c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            if (b.stage==0) {
-                b.pf.merge(tmp.pf);
-                dict.tail().pf.drop();
+            Code b = dict.bran();                          ///< branching target
+            int  s = b.stage;                              ///< branching state
+            if (s==0) {                                    /// * if..{pf}..then
+                BRAN(b.pf); dict.drop();
             } 
-            else {
-                b.p1.merge(tmp.pf);
-                if (b.stage != 1) {
-                    tmp.pf.clear();
-                }
+            else {                                         /// * else..{p1}..then, or
+                BRAN(b.p1);                                /// * then..{p1}..next
+                if (s==1) dict.drop();                     /// * if..else..then
             }
         });
-        ///
-        ///> Loop - begin-while-repeat again
-        ///
+        /// @}
+        /// @defgroup Loops
+        /// @brief  - begin...again, begin...f until, begin...f while...repeat
+        /// @{
         IMMD("begin", c -> { 
-            ADD_W(new Code(_loop));
-            ADD_W(new Code(_tmp));
+            ADD_W(new Code(_begin));                       /// * branch targer
+            dict.add(new Code(_tmp));                    
         });
         IMMD("while", c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            b.pf.merge(tmp.pf);
+            Code b = dict.bran();
+            BRAN(b.pf);                                    /// * begin..{pf}..f.while
             b.stage = 2; 
-            tmp.pf.clear();
         });
         IMMD("repeat",c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            b.p1.merge(tmp.pf);
+            Code b = dict.bran();
+            BRAN(b.p1); dict.drop();                       /// * while..{p1}..repeat
         });
         IMMD("again", c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            b.pf.merge(tmp.pf);
+            Code b = dict.bran();
+            BRAN(b.pf); dict.drop();                       /// * begin..{pf}..again
             b.stage=1;
         });
         IMMD("until", c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            b.pf.merge(tmp.pf); dict.drop();
+            Code b = dict.bran();
+            BRAN(b.pf); dict.drop();                       /// * begin..{pf}..f.until
         });
-        ///
-        ///> Loop - for next
-        ///
+        /// @}
+        /// @defgrouop FOR loops
+        /// @brief  - for...next, for...aft...then...next
+        /// @{
         IMMD("for",  c -> {
             ADD_W(new Code(_tor));
-            ADD_W(new Code(_cycles));
-            ADD_W(new Code(_tmp));
+            ADD_W(new Code(_loop));
+            dict.add(new Code(_tmp));
         });
         IMMD("aft",  c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            b.pf.merge(tmp.pf);
+            Code b = dict.bran();
+            BRAN(b.pf);
             b.stage = 3; 
-            tmp.pf.clear();
         });
         IMMD("next", c -> {
-            Code tmp = dict.tail(), b = dict.bran();
-            if (b.stage==0) {
-                 b.pf.merge(tmp.pf);
-            }
-            else b.p2.merge(tmp.pf);
-            dict.drop();
+            Code b = dict.bran();                         /// * for..{pf}..next, or
+            BRAN(b.stage==0 ? b.pf : b.p2); dict.drop();  /// * then..{p2}..next
         });
-        ///
-        ///> Defining words
-        ///
-        CODE("exit",  c -> c.unnest()                );   /// marker to exit interpreter
-        CODE("exec",  c -> dict.get(ss.pop()).nest() );
+        /// @}
+        /// @defgrouop Compiler ops
+        /// @{
+        CODE("[",     c -> compile = false                );
+        CODE("]",     c -> compile = true                 );
         CODE(":",     c -> {
             dict.add(word()); compile = true;
         });
-        IMMD(";",     c -> compile = false           );
-        CODE("docon", c -> ss.push(c.qf.head())      );   /// integer literal
-        CODE("dovar", c -> ss.push(c.token)          );   /// string literals
-        CODE("create",c -> {
-            dict.add(word());
-            Code v  = new Code(_dovar, 0);
-            v.token = dict.tail().token;
-            v.qf.drop();
-            ADD_W(v);
-        });
+        IMMD(";",     c -> compile = false                );
         CODE("variable", c -> {
             dict.add(word());
             Code v  = new Code(_dovar, 0);
@@ -336,6 +355,36 @@ public class VM {
             v.token = dict.tail().token;
             dict.compile(v);
         });
+        CODE("postpone", c -> {
+            Code w = tick(); if (w!=null) ADD_W(w);
+        });
+        CODE("immediate",c -> dict.tail().immediate()     );
+        CODE("exit",  c -> c.unnest()                     );       /// marker to exit interpreter
+        CODE("exec",  c -> dict.get(ss.pop()).nest()      );
+        CODE("create",c -> {
+            dict.add(word());
+            Code v  = new Code(_dovar, 0);
+            v.token = dict.tail().token;
+            v.qf.drop();
+            ADD_W(v);
+        });
+        IMMD("does>", c -> {                                       /// n --
+            Code w = new Code(_dodoes);
+            w.token = dict.tail().token;
+            ADD_W(w);
+        });
+        CODE("to",   c -> {                                        /// n -- , compile only
+            Code w = tick(); if (w==null) return;
+            w.set_var(0, ss.pop());
+        });
+        CODE("is",   c -> {                                        /// w -- , execute only
+            Code w   = tick(); if (w==null) return;
+            Code src = dict.get(ss.pop());                         /// source word
+            dict.get(w.token).pf = src.pf; 
+        });
+        /// @}
+        /// @defgroup Memory Access ops
+        /// @{
         CODE("@",  c -> {                                          /// w -- n
             Code w = dict.get(ss.pop());
             ss.push(w.get_var(0));
@@ -372,27 +421,20 @@ public class VM {
             Code w = dict.tail();
             for (int i=0; i < n; i++) w.comma(0);
         });
-        IMMD("does>", c -> {                                       /// n --
-            Code w = new Code(_dodoes);
-            w.token = dict.tail().token;
-            ADD_W(w);
+        /// @}
+        /// @defgroup Debug ops
+        /// @{
+        CODE("here",  c -> ss.push(Code.fence)                     );
+        CODE("'",     c -> { 
+            Code w = tick(); if (w!=null) ss.push(w.token);
         });
-        CODE("to",   c -> {                                        /// n -- , compile only
-            Code w = tick(); if (w==null) return;
-            w.set_var(0, ss.pop());
-        });
-        CODE("is",   c -> {                                        /// w -- , execute only
-            Code w   = tick(); if (w==null) return;
-            Code src = dict.get(ss.pop());                         /// source word
-            dict.get(w.token).pf = src.pf; 
-        });
-        //// tools
-        CODE("here",  c -> ss.push(Code.fence));
-        CODE("words", c -> io.words(dict));
-        CODE(".s",    c -> io.ss_dump(ss, base));
-        CODE("see",   c -> io.see(tick()));
+        CODE(".s",    c -> io.ss_dump(ss, base)                    );
+        CODE("words", c -> io.words(dict)                          );
+        CODE("see",   c -> io.see(tick())                          );
         CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
-        CODE("ms",    c -> {                                       /// n -- delay n milliseconds
+        CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
+        CODE("depth", c -> ss.push(dict.size())                    );
+        CODE("ms",    c -> {                                       /// n -- delay n ms
             try { Thread.sleep(ss.pop()); } 
             catch (Exception e) { io.err(e); }
         });

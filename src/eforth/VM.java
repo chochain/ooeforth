@@ -4,9 +4,9 @@
 ///
 package eforth;
 
-import java.util.*;
 import java.io.*;
 import java.time.*;
+import java.util.*;
 import java.util.function.*;
 
 public class VM {
@@ -31,7 +31,8 @@ public class VM {
         io   = io0;
         dict = Dict.get_instance();
         dict_init();
-        Code b = new Code(_dolit, 10); b.token = 0;     ///< use dict[0] as base store
+        Code b = new Code(_dolit, "lit", 10);          ///< use dict[0] as base store
+        b.token = 0;
         dict.get(0).pf.add(b);
         io.words(dict);
     }
@@ -52,16 +53,15 @@ public class VM {
         return run;
     }
     void parse(String idiom) {                          /// outer interpreter (one line a time)
-        io.pstr("idiom="+idiom+" ");
         Code w = dict.find(idiom, compile);             ///> search dictionary
 
-        if (w != null) {                                ///> if word found
+        if (w != null) {                                ///> found word?
             io.pstr(" => " + w + "\n");
-            if (!compile || w.immd) {                   ///> * check whether in immediate mode 
-                try                 { w.nest();  }      ///> execute immediately
-                catch (Exception e) { io.err(e); }      /// just-in-case it failed
+            if (!compile || w.immd) {                   /// * are we compiling?
+                try                 { w.nest();  }      /// * execute immediately
+                catch (Exception e) { io.err(e); }      /// * just-in-case it failed
             }
-            else dict.compile(w);                       ///> * add to dictionary if in compile mode
+            else dict.compile(w);                       /// * add to dictionary if in compile mode
             return;
         }
         ///> word not found, try as a number
@@ -69,7 +69,7 @@ public class VM {
             int n=Integer.parseInt(idiom, base);        ///> * try process as a number
             io.pstr(" => "+n+"\n");
             if (compile)                                ///>> in compile mode 
-                dict.compile(new Code(_dolit, n));      ///>> append literal to latest defined word
+                dict.compile(new Code(_dolit, "lit", n));  ///>> add to latest defined word
             else ss.push(n);                            ///>> or, add number to top of stack
         }                                            
         catch (NumberFormatException ex) {              ///> if it's not a number
@@ -107,7 +107,10 @@ public class VM {
     ///
     Consumer<Code> _tmp    = c -> { /* do nothing */ };
     Consumer<Code> _dolit  = c -> ss.push(c.qf.head());
-    Consumer<Code> _dostr  = c -> ss.push(c.token);
+    Consumer<Code> _dostr  = c -> {
+        ss.push(c.token);
+        ss.push(c.pf.get(0).str.length());
+    };
     Consumer<Code> _dotstr = c -> io.pstr(c.str);
     Consumer<Code> _branch = c -> c.branch(ss);
     Consumer<Code> _begin  = c -> c.begin(ss);
@@ -215,6 +218,7 @@ public class VM {
         CODE(">r",    c -> rs.push(ss.pop())               );
         CODE("r>",    c -> ss.push(rs.pop())               );
         CODE("r@",    c -> ss.push(rs.peek())              );
+        CODE("i",     c -> ss.push(rs.peek())              );
         /// @}
         /// @defgroup Return Stack ops - Extra
         /// @{
@@ -238,7 +242,10 @@ public class VM {
             int n = ss.pop(), r = ss.pop();
             io.dot(IO.OP.UDOTR, n, r, base);
         });
-        CODE("type",  c -> { ss.pop(); io.pstr(c.str); }  );
+        CODE("type",  c-> {
+            ss.pop(); int i = ss.pop();                  // str index
+            io.pstr(i >= 0 ? dict.get(i).pf.get(0).str : io.pad());
+        });
         CODE("key",   c -> io.key()                       );
         CODE("emit",  c -> io.dot(IO.OP.EMIT, ss.pop())   );
         CODE("space", c -> io.spaces(1)                   );
@@ -250,16 +257,20 @@ public class VM {
         IMMD(".(",    c -> io.scan("\\)")            );
         IMMD("\\",    c -> io.scan("\n")             );
         IMMD("s\"",   c -> {                               /// -- w a
-            Code last = dict.tail();                       /// last defined word
-            ss.push(last.token);
-            ss.push(last.pf.size());
-            
-            String s = io.scan("\"");
-            ADD_W(new Code(_dostr, s));                    /// literal=s
+            String s = io.scan("\""); if (s==null) return;
+            if (compile) {
+                Code w = new Code(_dostr, "s\"", s);
+                w.token = dict.tail().token;
+                ADD_W(w);                                  /// literal=s
+            }
+            else { ss.push(-1); ss.push(s.length()); }     /// use pad
         });
         IMMD(".\"",   c -> {
-            String s = io.scan("\"");
-            ADD_W(new Code(_dotstr, s));                   /// literal=s
+            String s = io.scan("\""); if (s==null) return;
+            if (compile) {
+                ADD_W(new Code(_dotstr, ".\"", s));        /// literal=s
+            }
+            else io.pstr(s);
         });
         /// @}
         /// @defgroup Branching ops
@@ -270,8 +281,8 @@ public class VM {
         ///     dict[-1]->pf[...] as *tmp -------------------+
         /// @{
         IMMD("if",    c -> { 
-            ADD_W(new Code(_branch));                      /// literal=s
-            dict.add(new Code(_tmp));
+            ADD_W(new Code(_branch, "if"));                /// literal=s
+            dict.add(new Code(_tmp, ""));
         });
         IMMD("else",  c -> {
             Code b = dict.bran();
@@ -294,8 +305,8 @@ public class VM {
         /// @brief  - begin...again, begin...f until, begin...f while...repeat
         /// @{
         IMMD("begin", c -> { 
-            ADD_W(new Code(_begin));                       /// * branch targer
-            dict.add(new Code(_tmp));                    
+            ADD_W(new Code(_begin, "begin"));              /// * branch targer
+            dict.add(new Code(_tmp, ""));                    
         });
         IMMD("while", c -> {
             Code b = dict.bran();
@@ -320,9 +331,9 @@ public class VM {
         /// @brief  - for...next, for...aft...then...next
         /// @{
         IMMD("for",  c -> {
-            ADD_W(new Code(_tor));
-            ADD_W(new Code(_loop));
-            dict.add(new Code(_tmp));
+            ADD_W(new Code(_tor, ">r"));
+            ADD_W(new Code(_loop, "for"));
+            dict.add(new Code(_tmp, ""));
         });
         IMMD("aft",  c -> {
             Code b = dict.bran();
@@ -344,13 +355,13 @@ public class VM {
         IMMD(";",     c -> compile = false                );
         CODE("variable", c -> {
             dict.add(word());
-            Code v  = new Code(_dovar, 0);
+            Code v  = new Code(_dovar, "var", 0);
             v.token = dict.tail().token;
             dict.compile(v);
         });
         CODE("constant", c -> {                                    /// n --
             dict.add(word());
-            Code v = new Code(_dolit, ss.pop());
+            Code v = new Code(_dolit, "lit", ss.pop());
             v.token = dict.tail().token;
             dict.compile(v);
         });
@@ -362,14 +373,13 @@ public class VM {
         CODE("exec",  c -> dict.get(ss.pop()).nest()      );
         CODE("create",c -> {
             dict.add(word());
-            Code v  = new Code(_dovar, 0);
+            Code v  = new Code(_dovar, "var", 0);
             v.token = dict.tail().token;
             v.qf.drop();
             ADD_W(v);
         });
         IMMD("does>", c -> {                                       /// n --
-            Code w = new Code(_dodoes);
-            w.name  = "does>";
+            Code w = new Code(_dodoes, "does>");
             w.token = dict.tail().token;
             ADD_W(w);
         });
@@ -431,7 +441,7 @@ public class VM {
         });
         CODE(".s",    c -> io.ss_dump(ss, base)                    );
         CODE("words", c -> io.words(dict)                          );
-        CODE("see",   c -> io.see(tick())                          );
+        CODE("see",   c -> io.see(tick(), 0)                       );
         CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
         CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
         CODE("depth", c -> ss.push(dict.size())                    );

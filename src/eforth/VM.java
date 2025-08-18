@@ -31,6 +31,8 @@ public class VM {
         io   = io0;
         dict = Dict.get_instance();
         dict_init();
+        Code b = new Code(_dolit, 10); b.token = 0;     ///< use dict[0] as base store
+        dict.get(0).pf.add(b);
         io.words(dict);
     }
     ///
@@ -223,10 +225,9 @@ public class VM {
         /// @}
         /// @defgroup IO ops
         /// @{
-        CODE("base@", c -> ss.push(base)                   );
-        CODE("base!", c -> base = ss.pop()                 );
-        CODE("hex",   c -> base = 16                       );
-        CODE("decimal",c-> base = 10                       );
+        CODE("base",  c->ss.push(0)                        );
+        CODE("hex",   c -> dict.get(0).set_var(0, base=16) );
+        CODE("decimal",c-> dict.get(0).set_var(0, base=10) );
         CODE("cr",    c -> io.cr()                         );
         CODE("bl",    c -> io.bl()                         );
         CODE(".",     c -> io.dot(IO.OP.DOT, ss.pop(), base) );
@@ -389,9 +390,10 @@ public class VM {
             Code w = dict.get(ss.pop());
             ss.push(w.get_var(0));
         });
-        CODE("!",  c -> {                                          /// n w -- 
-            Code w = dict.get(ss.pop());
-            w.set_var(0, ss.pop());
+        CODE("!",  c -> {                                          /// n w --
+            int i = ss.pop(), n = ss.pop();
+            dict.get(i).set_var(0, n);
+            if (i==0) base = n;
         });
         CODE("+!", c -> {                                          /// n w -- 
             Code w = dict.get(ss.pop());

@@ -2,13 +2,12 @@
 /// @file 
 /// @brief - Java eForth main
 ///
-import java.util.*;
 import java.io.*;
 import eforth.*;
 
 public class Eforth implements Runnable {                   /// ooeforth
-    static final String VERSION = "ooeForth2.0";
-    static final String GREET   = "Thank you.";
+    static final String APP_NAME = "ooeForth2.0\n";
+    static final String GREET    = "Thank you.\n";
     IO           io;
     VM           vm;                                        ///< eForth virtual machine
 
@@ -18,14 +17,14 @@ public class Eforth implements Runnable {                   /// ooeforth
     }
     
     public void run() {
-        io.pstr(VERSION+"\n");
+        io.pstr(APP_NAME);
         while (io.readline()) {
             vm.outer();
         }
         io.pstr(GREET);
     }
 
-    public static void main(String args[]) {                /// ooeforth 1.12
+    public static void main(String args[]) {                /// main app
         new Eforth(System.in, System.out).run();
     }
 }

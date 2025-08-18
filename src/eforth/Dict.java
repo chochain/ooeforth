@@ -10,7 +10,7 @@ import java.time.*;
 import java.util.function.*;
 
 final public class Dict extends FV<Code> {
-    static Dict dict;
+    static Dict dict = new Dict();
     
     static Dict get_instance() { return dict; }         ///< singleton
     ///

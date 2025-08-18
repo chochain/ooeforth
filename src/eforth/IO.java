@@ -77,7 +77,7 @@ public class IO {
     void words(Dict dict) {
         int i=0, sz = 0; 
         for (var w : dict) {
-            pstr(w.name + "  ");
+            pstr("  " + w.name);
             sz += w.name.length() + 2;                         /// width control
             if (sz > 64) { cr(); sz = 0; }
         }

@@ -53,10 +53,10 @@ public class VM {
         return run;
     }
     void parse(String idiom) {                          /// outer interpreter (one line a time)
+        io.debug("find "+idiom);
         Code w = dict.find(idiom, compile);             ///> search dictionary
-
         if (w != null) {                                ///> found word?
-            io.pstr(" => " + w.name + "\n");
+            io.debug(" => [" + w.token + "]" + w.name + "\n");
             if (!compile || w.immd) {                   /// * are we compiling?
                 try                 { w.nest();  }      /// * execute immediately
                 catch (Exception e) { io.err(e); }      /// * just-in-case it failed
@@ -64,10 +64,11 @@ public class VM {
             else dict.compile(w);                       /// * add to dictionary if in compile mode
             return;
         }
+        else io.debug(" => not found");
         ///> word not found, try as a number
         try {
             int n=Integer.parseInt(idiom, base);        ///> * try process as a number
-            io.pstr(" => "+n+"\n");
+            io.debug(" => "+n+"\n");
             if (compile)                                ///>> in compile mode 
                 dict.compile(new Code(_dolit, "lit", n));  ///>> add to latest defined word
             else ss.push(n);                            ///>> or, add number to top of stack

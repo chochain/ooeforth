@@ -11,16 +11,16 @@ public class Eforth implements Runnable {                   /// ooeforth
     VM           vm;                                        ///< eForth virtual machine
 
     public Eforth(InputStream in, PrintStream out) {
-        io = new IO(in, out);
+        io = new IO(APP_NAME, in, out);
         vm = new VM(io);
     }
     
     public void run() {
-        io.pstr(APP_NAME+"\n");
+        io.mstat();
         while (io.readline()) {
             if (!vm.outer()) break;
         }
-        io.pstr(APP_NAME+" Done.\n");
+        io.pstr("\n"+APP_NAME+" Done.\n");
     }
 
     public static void main(String args[]) {                /// main app

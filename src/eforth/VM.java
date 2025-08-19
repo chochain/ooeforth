@@ -110,7 +110,12 @@ public class VM {
     ///
     ///> MMU macros
     ///
-    int  IDX() {                                       ///< 
+    int  GETV(int i_w) { return dict.get(i_w & 0x7fff).get_var(i_w >> 16); }
+    void SETV(int i_w, int n) {
+        dict.get(i_w & 0x7fff).set_var(i_w >> 16, n);
+        if (i_w==0) base = n;                                      /// * also update base
+    }
+    int IDX() {                                                    ///< calculate String index
         return ((dict.tail().pf.size() - 1) << 16) | dict.tail().token;
     }
     String STR(int i_w) {
@@ -412,40 +417,32 @@ public class VM {
         });
         /// @}
         /// @defgroup Memory Access ops
+        /// @note:
+        ///   allot allocate elements in a word's q[] array
+        ///   to access, both indices to word itself and to q array are needed
+        ///   'th' a word that compose i_w, a 32-bit value, the 16 high bits
+        ///   serves as the q index and lower 16 lower bit as word index
+        ///   so a variable (array with 1 element) can be access as usual
+        ///
         /// @{
-        CODE("@",  c -> ss.push(dict.get(ss.pop()).get_var(0)));   /// w -- n
+        CODE("@",  c -> ss.push(GETV(ss.pop()))           );       /// w -- n
         CODE("!",  c -> {                                          /// n w --
-            int w = ss.pop(), n = ss.pop();
-            dict.get(w).set_var(0, n);
-            if (w==0) base = n;
+            int i_w = ss.pop(); SETV(i_w, ss.pop());
         });
-        CODE("+!", c -> {                                          /// n w -- 
-            Code w = dict.get(ss.pop());
-            int  n = w.get_var(0) + ss.pop();
-            w.set_var(0, n);
+        CODE("+!", c -> {                                          /// n w --
+            int  i_w = ss.pop(), n = GETV(i_w) + ss.pop();
+            SETV(i_w, n);
         });
-        CODE("?",  c -> {                                          /// w -- 
-            Code w = dict.get(ss.pop());
-            io.dot(IO.OP.DOT, w.get_var(0));
-        });
-        CODE("array@", c -> {                                      /// w a -- n
-            int  a = ss.pop();
-            Code w = dict.get(ss.pop());
-            ss.push(w.get_var(a));
-        });
-        CODE("array!", c -> {                                      /// n w a -- 
-            int  a = ss.pop();
-            Code w = dict.get(ss.pop());
-            w.set_var(a, ss.pop());
-        });
-        CODE(",",    c -> {                                        /// n --
-            Code w = dict.tail();
-            w.comma(ss.pop());
-        });
+        CODE("?",  c -> io.dot(IO.OP.DOT, GETV(ss.pop())) );       /// w --
+        CODE(",",  c -> dict.tail().comma(ss.pop())       );       /// n -- 
+        CODE("cells",c -> { /* backward compatible */ }   );       /// --
         CODE("allot",c -> {                                        /// n --
             int  n = ss.pop(); 
             Code w = dict.tail();
             for (int i=0; i < n; i++) w.comma(0);
+        });
+        CODE("th", c -> {                                          /// w i -- i_w
+            int i = ss.pop() << 16; ss.push(i | ss.pop());         /// i.e. 4 v 2 th !
         });
         /// @}
         /// @defgroup Debug ops

@@ -12,15 +12,26 @@ import java.util.function.*;
 ///
 public class IO {
     enum OP { CR, BL, EMIT, DOT, UDOT, DOTR, UDOTR, SPCS }
-        
+
+    String      name;
     Scanner     in   = null;                           ///< line input
     Scanner     tok  = null;                           ///< tokenizer
     PrintWriter out  = null;                           ///< streaming output
     String      pad;                                   ///< tmp storage
 
-    public IO(InputStream i, PrintStream o) {
-        in  = new Scanner(i);
-        out = new PrintWriter(o, true);
+    public IO(String n, InputStream i, PrintStream o) {
+        name = n;
+        in   = new Scanner(i);
+        out  = new PrintWriter(o, true);
+    }
+    public void mstat() {
+        Runtime rt   = Runtime.getRuntime();
+        long    max  = rt.maxMemory() / 1024 / 1024;        ///< heap size
+        long    tot  = rt.totalMemory() / 1024 / 1024;      ///< JVM allcated
+        long    used = tot - rt.freeMemory() / 1024 / 1024; ///< used memory
+        long    free = max - used;
+        double  pct  = 100.0 * free / max;
+        out.printf("\n%s, RAM %3.1f%% free (%d / %d MB)\n", name, pct, free, max);
     }
     public boolean readline() {
         boolean t   = in.hasNextLine();                ///< any more line to read?
@@ -78,8 +89,7 @@ public class IO {
     ///> ok - stack dump and OK prompt
     ///
     void ss_dump(Stack<Integer> ss, int base) {
-        cr();
-        for (int n : ss) pstr(itoa(n, base)+" ");
+        cr(); for (int n : ss) pstr(itoa(n, base)+" ");
     }
     void words(Dict dict) {
         int i=0, sz = 0; 
@@ -90,6 +100,7 @@ public class IO {
         }
     }
     void see(Code c, int dp) {
+        if (c==null) return;
         Consumer<String> tab = s->{
             int i = dp;
             cr();

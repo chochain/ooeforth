@@ -34,34 +34,37 @@ public class VM {
         Code b = new Code(_dolit, "lit", 10);          ///< use dict[0] as base store
         b.token = 0;
         dict.get(0).pf.add(b);
-        io.words(dict);
     }
     ///
     ///> Forth outer interpreter - process one line a time
     ///
+    public void ok(boolean stat) {
+        if (stat) io.mstat();
+        if (compile) io.pstr("> ");                     ///> compile mode prompt
+        else {
+            io.ss_dump(ss, base);
+            io.pstr("ok ");                             ///> * OK prompt (interpreter)
+        }
+    }
     public boolean outer() {
         String idiom = io.next_token();
         while (run && idiom!=null) {                    ///> parse next token
             parse(idiom);
             idiom = io.next_token();
         }
-        if (compile) io.pstr("> ");                     ///> if it's in compile mode
-        else {                                          ///> in interpreter mode
-            io.ss_dump(ss, base);
-            io.pstr("ok ");                             ///> * OK prompt
-        }
-        return run;
+        ok(false);
+        return run;                                     ///> * return VM status
     }
-    void parse(String idiom) {                          /// outer interpreter (one line a time)
+    void parse(String idiom) {                          ///> outer interpreter (one line a time)
         io.debug("find "+idiom);
-        Code w = dict.find(idiom, compile);             ///> search dictionary
+        Code w = dict.find(idiom, compile);             ///< search dictionary
         if (w != null) {                                ///> found word?
             io.debug(" => [" + w.token + "]" + w.name + "\n");
-            if (!compile || w.immd) {                   /// * are we compiling?
-                try                 { w.nest();  }      /// * execute immediately
-                catch (Exception e) { io.err(e); }      /// * just-in-case it failed
+            if (!compile || w.immd) {                   ///> in interpreter mode?
+                try                 { w.nest();  }      ///> * execute immediately
+                catch (Exception e) { io.err(e); }      ///> * just-in-case it failed
             }
-            else dict.compile(w);                       /// * add to dictionary if in compile mode
+            else dict.compile(w);                       ///> add to dictionary if in compile mode
             return;
         }
         else io.debug(" => not found");
@@ -70,8 +73,8 @@ public class VM {
             int n=Integer.parseInt(idiom, base);        ///> * try process as a number
             io.debug(" => "+n+"\n");
             if (compile)                                ///>> in compile mode 
-                dict.compile(new Code(_dolit, "lit", n));  ///>> add to latest defined word
-            else ss.push(n);                            ///>> or, add number to top of stack
+                dict.compile(new Code(_dolit, "lit", n));  ///> add to latest defined word
+            else ss.push(n);                            ///> or, add number to top of stack
         }                                            
         catch (NumberFormatException ex) {              ///> if it's not a number
             io.pstr(idiom + " ?");                      ///> * show not found sign
@@ -106,7 +109,7 @@ public class VM {
     ///
     ///> MMU macros
     ///
-    int  IDX() {
+    int  IDX() {                                       ///< 
         return ((dict.tail().pf.size() - 1) << 16) | dict.tail().token;
     }
     String STR(int i_w) {
@@ -263,9 +266,11 @@ public class VM {
         /// @}
         /// @defgroup Literal ops
         /// @{
-        IMMD("(",     c -> io.scan("\\)")            );
-        IMMD(".(",    c -> io.scan("\\)")            );
-        IMMD("\\",    c -> io.scan("\n")             );
+        IMMD("(",     c -> io.scan("\\)")                 );
+        IMMD(".(",    c -> {
+            io.scan("\\)"); io.pstr(io.pad());
+        });
+        IMMD("\\",    c -> io.scan("\n")                  );
         IMMD("s\"",   c -> {                               /// -- w a
             String s = io.scan("\""); if (s==null) return;
             if (compile) {
@@ -452,6 +457,10 @@ public class VM {
         CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
         CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
         CODE("depth", c -> ss.push(dict.size())                    );
+        IMMD("include", c -> io.load(this, io.next_token())        );  /// include an OS file
+        CODE("included",c -> {                                         /// include a file (programmable)
+                ss.pop(); io.load(this, STR(ss.pop()));
+        });
         CODE("ok",    c -> io.mstat()                              );
         CODE("ms",    c -> {                                       /// n -- delay n ms
             try { Thread.sleep(ss.pop()); } 

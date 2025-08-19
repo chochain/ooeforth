@@ -135,8 +135,10 @@ public class VM {
     Consumer<Code> _dotstr = c -> io.pstr(c.str);
     Consumer<Code> _branch = c -> c.branch(ss);
     Consumer<Code> _begin  = c -> c.begin(ss);
+    Consumer<Code> _for    = c -> c.dofor(rs);
     Consumer<Code> _loop   = c -> c.loop(rs);
     Consumer<Code> _tor    = c -> rs.push(ss.pop());
+    Consumer<Code> _tor2   = c -> { rs.push(ss.pop()); rs.push(ss.pop()); };
     Consumer<Code> _dovar  = c -> ss.push(c.token);
     Consumer<Code> _dodoes = c -> {
         var hit = false;
@@ -354,8 +356,8 @@ public class VM {
         /// @brief  - for...next, for...aft...then...next
         /// @{
         IMMD("for",  c -> {
-            ADD_W(new Code(_tor, ">r"));
-            ADD_W(new Code(_loop, "for"));
+            ADD_W(new Code(_tor, "tor"));
+            ADD_W(new Code(_for, "for"));
             dict.add(new Code(_tmp, ""));
         });
         IMMD("aft",  c -> {
@@ -366,6 +368,21 @@ public class VM {
         IMMD("next", c -> {
             Code b = dict.bran();                         /// * for..{pf}..next, or
             BRAN(b.stage==0 ? b.pf : b.p2); dict.drop();  /// * then..{p2}..next
+        });
+        /// @}
+        /// @defgrouop DO loops
+        /// @brief  - do...loop, do..leave..loop
+        /// @{
+        IMMD("do",   c -> {
+             ADD_W(new Code(_tor2, "tor2"));              ///< ( limit first -- )
+             ADD_W(new Code(_loop, "do"));
+             dict.add(new Code(_tmp, ""));
+        });
+        CODE("leave", c -> c.unnest());                   /// * exit loop
+        IMMD("loop", c -> {
+             Code b = dict.bran();
+             BRAN(b.pf);                                  /// * do..{pf}..loop
+             dict.drop();
         });
         /// @}
         /// @defgrouop Compiler ops
@@ -456,7 +473,8 @@ public class VM {
         CODE("see",   c -> io.see(tick(), 0)                       );
         CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
         CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
-        CODE("depth", c -> ss.push(dict.size())                    );
+        CODE("depth", c -> ss.push(ss.size())                      );
+        CODE("r",     c -> ss.push(rs.size())                      );
         IMMD("include", c -> io.load(this, io.next_token())        );  /// include an OS file
         CODE("included",c -> {                                         /// include a file (programmable)
                 ss.pop(); io.load(this, STR(ss.pop()));

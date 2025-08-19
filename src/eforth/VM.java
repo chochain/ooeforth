@@ -103,13 +103,22 @@ public class VM {
         int n = ss.pop(); ss.push(m.apply(ss.pop(), n)); 
     }
     ///
+    ///> MMU macros
+    ///
+    int  IDX() {
+        return ((dict.tail().pf.size() - 1) << 16) | dict.tail().token;
+    }
+    String STR(int i_w) {
+        return dict.get(i_w & 0x7fff).pf.get(i_w >> 16).str;
+    }
+    ///
     ///> built-in words and macros
     ///
     Consumer<Code> _tmp    = c -> { /* do nothing */ };
     Consumer<Code> _dolit  = c -> ss.push(c.qf.head());
     Consumer<Code> _dostr  = c -> {
         ss.push(c.token);
-        ss.push(c.pf.get(0).str.length());
+        ss.push(STR(c.token).length());
     };
     Consumer<Code> _dotstr = c -> io.pstr(c.str);
     Consumer<Code> _branch = c -> c.branch(ss);
@@ -243,8 +252,8 @@ public class VM {
             io.dot(IO.OP.UDOTR, n, r, base);
         });
         CODE("type",  c-> {
-            ss.pop(); int i = ss.pop();                  // str index
-            io.pstr(i >= 0 ? dict.get(i).pf.get(0).str : io.pad());
+            ss.pop(); int i_w = ss.pop();                  ///< drop len, get index
+            io.pstr(i_w < 0 ? io.pad() : STR(i_w));
         });
         CODE("key",   c -> io.key()                       );
         CODE("emit",  c -> io.dot(IO.OP.EMIT, ss.pop())   );
@@ -260,8 +269,8 @@ public class VM {
             String s = io.scan("\""); if (s==null) return;
             if (compile) {
                 Code w = new Code(_dostr, "s\"", s);
-                w.token = dict.tail().token;
                 ADD_W(w);                                  /// literal=s
+                w.token = IDX();
             }
             else { ss.push(-1); ss.push(s.length()); }     /// use pad
         });
@@ -355,15 +364,15 @@ public class VM {
         IMMD(";",     c -> compile = false                );
         CODE("variable", c -> {
             dict.add(word());
-            Code v  = new Code(_dovar, "var", 0);
-            v.token = dict.tail().token;
-            dict.compile(v);
+            Code w  = new Code(_dovar, "var", 0);
+            ADD_W(w);
+            w.token = IDX();
         });
         CODE("constant", c -> {                                    /// n --
             dict.add(word());
-            Code v = new Code(_dolit, "lit", ss.pop());
-            v.token = dict.tail().token;
-            dict.compile(v);
+            Code w = new Code(_dolit, "lit", ss.pop());
+            ADD_W(w);
+            w.token = IDX();
         });
         CODE("postpone", c -> {
             Code w = tick(); if (w!=null) ADD_W(w);
@@ -373,15 +382,15 @@ public class VM {
         CODE("exec",  c -> dict.get(ss.pop()).nest()      );
         CODE("create",c -> {
             dict.add(word());
-            Code v  = new Code(_dovar, "var", 0);
-            v.token = dict.tail().token;
-            v.qf.drop();
-            ADD_W(v);
+            Code w = new Code(_dovar, "var", 0);
+            ADD_W(w);
+            w.token = IDX();
+            w.qf.drop();
         });
         IMMD("does>", c -> {                                       /// n --
             Code w = new Code(_dodoes, "does>");
-            w.token = dict.tail().token;
             ADD_W(w);
+            w.token = IDX();
         });
         CODE("to",   c -> {                                        /// n -- , compile only
             Code w = tick(); if (w==null) return;
@@ -395,14 +404,11 @@ public class VM {
         /// @}
         /// @defgroup Memory Access ops
         /// @{
-        CODE("@",  c -> {                                          /// w -- n
-            Code w = dict.get(ss.pop());
-            ss.push(w.get_var(0));
-        });
+        CODE("@",  c -> ss.push(dict.get(ss.pop()).get_var(0)));   /// w -- n
         CODE("!",  c -> {                                          /// n w --
-            int i = ss.pop(), n = ss.pop();
-            dict.get(i).set_var(0, n);
-            if (i==0) base = n;
+            int w = ss.pop(), n = ss.pop();
+            dict.get(w).set_var(0, n);
+            if (w==0) base = n;
         });
         CODE("+!", c -> {                                          /// n w -- 
             Code w = dict.get(ss.pop());
@@ -445,6 +451,7 @@ public class VM {
         CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
         CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
         CODE("depth", c -> ss.push(dict.size())                    );
+        CODE("ok",    c -> io.mstat()                              );
         CODE("ms",    c -> {                                       /// n -- delay n ms
             try { Thread.sleep(ss.pop()); } 
             catch (Exception e) { io.err(e); }

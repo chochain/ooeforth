@@ -35,8 +35,10 @@ public class IO {
         out.printf("\n%s, RAM %3.1f%% free (%d / %d MB)\n", name, pct, free, max);
     }
     public boolean readline() {
+        String tib = null;
         tok = in.tail().hasNextLine()                       ///< create tokenizer
-            ? new Scanner(in.tail().nextLine()) : null;   
+            ? new Scanner(tib=in.tail().nextLine()) : null;
+        if (tib!=null && load_depth() > 0) pstr(tib+"\n");  ///< echo
         return tok != null;
     }
     public void pstr(String s)   { out.print(s); out.flush(); }
@@ -44,14 +46,14 @@ public class IO {
     public void debug(String s)  { if (DEBUG) pstr(s); }
     public void err(Exception e) { e.printStackTrace(); }
     
-    String next_token()       {                        ///< fetch next token from in stream
+    String next_token() {                                   ///< fetch next token from in stream
         return tok.hasNext() ? tok.next() : null;
     }   
     String scan(String delim) {
-        var d = tok.delimiter();                       ///< keep delimiter (space)
-        tok.useDelimiter(delim); pad = tok.next();     /// * read to delimiter (into pad)
-        tok.useDelimiter(d);     tok.next();           /// * restore and skip off delim
-        return (pad = pad.substring(1));
+        var d = tok.delimiter();                            ///< keep delimiter (SPC)
+        tok.useDelimiter(delim); pad = next_token();        /// * read to delimiter (into pad)
+        tok.useDelimiter(d);     next_token();              /// * restore and skip off delim
+        return pad==null ? null : (pad=pad.substring(1));   /// * drop first char (a SPC)
     }
     ///
     ///> IO methods
@@ -119,16 +121,16 @@ public class IO {
             pstr(" \\ ="); c.qf.forEach(i -> pstr(i.toString()+" "));
         }
         if (c.str != null)  pstr(" \\ =\""+c.str+"\" ");
-        if (dp == 0) pstr("\n;");
+        if (dp == 0) pstr("\n; ");
     }
-    int  load_depth() { return in.size() - 1; }
+    int  load_depth() { return in.size() - 1; }             /// * depth or recursive loading
     void load(VM vm, String fn) {
         debug("loading "+fn+"...\n");
         Scanner tok0 = tok;                                 /// * backup tokenizer
         int i = 0;
-        try (Scanner sc = new Scanner(new File(fn))) {
-            in.add(sc);                                     /// * backup input scanner
-            while (readline()) {                            /// * load from file
+        try (Scanner sc = new Scanner(new File(fn))) {      ///< auto close scanner
+            in.add(sc);                                     /// * keep input scanner
+            while (readline()) {                            /// * load from file now
                 i++;
                 if (!vm.outer()) break;
             }

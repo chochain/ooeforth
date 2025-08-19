@@ -7,9 +7,6 @@ package eforth;
 import java.io.*;
 import java.util.*;
 import java.util.function.*;
-//import java.io.BufferedReader;
-//import java.io.FileReader;
-//import java.io.IOException;
 ///
 ///> console input/output
 ///
@@ -18,14 +15,14 @@ public class IO {
     enum OP { CR, BL, EMIT, DOT, UDOT, DOTR, UDOTR, SPCS }
 
     String      name;
-    Scanner     in   = null;                           ///< line input
+    FV<Scanner> in   = new FV<>();                     ///< input scanner stack
     Scanner     tok  = null;                           ///< tokenizer
     PrintWriter out  = null;                           ///< streaming output
     String      pad;                                   ///< tmp storage
 
     public IO(String n, InputStream i, PrintStream o) {
         name = n;
-        in   = new Scanner(i);
+        in.add(new Scanner(i));
         out  = new PrintWriter(o, true);
     }
     public void mstat() {
@@ -38,8 +35,8 @@ public class IO {
         out.printf("\n%s, RAM %3.1f%% free (%d / %d MB)\n", name, pct, free, max);
     }
     public boolean readline() {
-        tok = in.hasNextLine()                         ///< create tokenizer
-            ? new Scanner(in.nextLine()) : null;   
+        tok = in.tail().hasNextLine()                       ///< create tokenizer
+            ? new Scanner(in.tail().nextLine()) : null;   
         return tok != null;
     }
     public void pstr(String s)   { out.print(s); out.flush(); }
@@ -124,19 +121,23 @@ public class IO {
         if (c.str != null)  pstr(" \\ =\""+c.str+"\" ");
         if (dp == 0) pstr("\n;");
     }
+    int  load_depth() { return in.size() - 1; }
     void load(VM vm, String fn) {
         debug("loading "+fn+"...\n");
-        Scanner in0 = in;
+        Scanner tok0 = tok;                                 /// * backup tokenizer
         int i = 0;
         try (Scanner sc = new Scanner(new File(fn))) {
-            in = sc;
-            while (readline()) {
+            in.add(sc);                                     /// * backup input scanner
+            while (readline()) {                            /// * load from file
                 i++;
                 if (!vm.outer()) break;
             }
         }
-        catch (IOException e) { err(e); }
-        debug(fn + " loaded "+i+" lines\n");
-        in = in0;
+        catch (IOException e) { err(e); }                   /// * just in case 
+        finally {
+            in.drop();                                      /// * restore scanner
+        }
+        tok = tok0;                                         /// * restore tokenizer
+        debug(fn + " loaded "+i+" lines"); cr();
     }
 }

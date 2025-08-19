@@ -248,11 +248,11 @@ public class VM {
         CODE(".",     c -> io.dot(IO.OP.DOT, ss.pop(), base) );
         CODE("u.",    c -> io.dot(IO.OP.UDOT, ss.pop(), base));
         CODE(".r",    c -> {
-            int n = ss.pop(), r = ss.pop();
+            int r = ss.pop(), n = ss.pop();
             io.dot(IO.OP.DOTR, n, r, base);
         });
         CODE("u.r",   c -> {
-            int n = ss.pop(), r = ss.pop();
+            int r = ss.pop(), n = ss.pop();
             io.dot(IO.OP.UDOTR, n, r, base);
         });
         CODE("type",  c-> {

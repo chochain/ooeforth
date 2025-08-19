@@ -62,46 +62,46 @@ public class Code {
         for (var w : ss.pop() != 0 ? pf : p1) w.nest();
     }
     void begin(Stack<Integer> ss) {
-        switch (stage) {
-        case 1:        /// again 
-            while (true) {
-                nest(pf);
-            }
-            /// never comes here?
-            /// break;
-        case 2:        /// repeat
-            while (true) {
-                nest(pf);
-                if (ss.pop()==0) break;
-                nest(p1);
-            }
-            break;
-        default:       /// until
-            while (true) {
-                nest(pf);
-                if (ss.pop() !=0 ) break;
-            }
+        int b = stage;
+        while (true) {
+            nest(pf);                              /// * begin..
+            if (b==0 && ss.pop() != 0) break;      /// * ..until
+            if (b==1)                  continue;   /// * ..again
+            if (b==2 && ss.pop() == 0) break;      /// * ..while..repeat
+            nest(p1);
         }
     }
-    void loop(Stack<Integer> rs) {
-        int i = 0;
-        if (stage==0) {
-            while(true){
-                nest(pf);
-                i = rs.pop();
-                if (--i < 0) break;
-                rs.push(i);
-            }
-        } 
-        else {
-            nest(pf);
-            while (true) {
+    void dofor(Stack<Integer> rs) {
+        try {
+            int i, b = stage;
+            do {
+                nest(pf);                          ///> for..
+                if (b > 0) break;                  ///> ..aft..
+                i = rs.pop();                      ///> decrement i (expensive)
+                rs.push(--i);
+            } while (i >= 0);
+            while (b > 0) {
                 nest(p2);
                 i = rs.pop();
-                if (--i < 0) break;
-                rs.push(i);
+                rs.push(--i);
+                if (i < 0) break;
                 nest(p1);
             }
         }
+        catch (Exception e) { /* leave */ }
+        finally { rs.pop(); }                      ///> pop off index
+    }
+    void loop(Stack<Integer> rs) {                 ///> do..loop
+        try {
+            int i;
+            while (true) {
+                i = rs.pop();
+                if (++i > rs.peek()) break;
+                nest(pf);
+                rs.push(i);
+            }
+        }
+        catch (Exception e) { /* leave */ }        /// handle LEAVE
+        finally { rs.pop(); rs.pop(); }
     }
 }

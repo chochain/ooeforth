@@ -11,6 +11,7 @@ import java.util.function.*;
 ///> console input/output
 ///
 public class IO {
+    private static final boolean DEBUG = true;
     enum OP { CR, BL, EMIT, DOT, UDOT, DOTR, UDOTR, SPCS }
 
     String      name;
@@ -36,12 +37,13 @@ public class IO {
     public boolean readline() {
         boolean t   = in.hasNextLine();                ///< any more line to read?
         String  tib = t ? in.nextLine() : null;        ///< feed input line
-        pstr("more="+t+" tib="+tib+"\n");
+        debug("more="+t+" tib="+tib+"\n");
         tok = t ? new Scanner(tib) : null;             ///< create the tokenizer
         return t;
     }
     public void pstr(String s)   { out.print(s); out.flush(); }
     public void pchr(int n)      { out.print(Character.toChars(n)); }
+    public void debug(String s)  { if (DEBUG) pstr(s); }
     public void err(Exception e) { e.printStackTrace(); }
     
     String next_token()       {                        ///< fetch next token from in stream

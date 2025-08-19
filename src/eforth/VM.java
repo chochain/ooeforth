@@ -31,7 +31,7 @@ public class VM {
         io   = io0;
         dict = Dict.get_instance();
         dict_init();
-        Code b = new Code(_dolit, "lit", 10);          ///< use dict[0] as base store
+        Code b = new Code(_dolit, "lit", 10);            ///< use dict[0] as base store
         b.token = 0;
         dict.get(0).pf.add(b);
     }
@@ -40,6 +40,7 @@ public class VM {
     ///
     public void ok(boolean stat) {
         if (stat) io.mstat();
+        if (io.load_depth() > 0) return;                /// * skip when loading
         if (compile) io.pstr("> ");                     ///> compile mode prompt
         else {
             io.ss_dump(ss, base);
@@ -113,7 +114,9 @@ public class VM {
         return ((dict.tail().pf.size() - 1) << 16) | dict.tail().token;
     }
     String STR(int i_w) {
-        return dict.get(i_w & 0x7fff).pf.get(i_w >> 16).str;
+        return i_w >= 0
+            ? dict.get(i_w & 0x7fff).pf.get(i_w >> 16).str
+            : io.pad();
     }
     ///
     ///> built-in words and macros
@@ -257,7 +260,7 @@ public class VM {
         });
         CODE("type",  c-> {
             ss.pop(); int i_w = ss.pop();                  ///< drop len, get index
-            io.pstr(i_w < 0 ? io.pad() : STR(i_w));
+            io.pstr(STR(i_w));
         });
         CODE("key",   c -> io.key()                       );
         CODE("emit",  c -> io.dot(IO.OP.EMIT, ss.pop())   );

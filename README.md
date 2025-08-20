@@ -121,11 +121,13 @@ I'm not a GUI person and have very limited experience with IDEs. Most of my work
     
     > javac -cp src -d tests src/Eforth.java         /// to build
     > javac -cp tests Eforth                         /// to run
-    
+
     > type> words⏎               \ to see available Forth words
     > type> 1 2 +⏎               \ see Forth in action
     > type> bye⏎  or Ctrl-C      \ to exit eForth
 
+Hopefully, you screen looks like this. <img src="https://github.com/chochain/ooeforth/tree/master/docs/ooeforth_init_1.png" width=400>
+    
 ### Dr. Ting's original one-file eForth
 
     javac -d tests src/EforthTing.java

@@ -51,10 +51,9 @@ The core of current implementation of eForth is the dictionary composed of an ar
     + str   - String, holds string literal
     </pre>
 
-
 3. <b>Dictionary</b> - an array of *Code* objects
     <pre>
-    + build-it words - constructed by dict_init() in VM module, with CODE/IMMD macros at start up assigning the names and these lambda i.e. Consumer<Code> in Code.xt
+    + build-it words - constructed by dict_init() in VM module, with CODE/IMMD macros at start up assigning the names and these lambda i.e. Consumer<*Code*> in Code.xt
         dict[0].xt ------> lambda[0]       <== These function pointers can be converted
         dict[1].xt ------> lambda[1]           into indices to a jump table
         ...                                    which is exactly what WASM does

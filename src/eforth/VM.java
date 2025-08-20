@@ -43,8 +43,9 @@ public class VM {
         if (io.load_depth() > 0) return;                /// * skip when loading
         if (compile) io.pstr("> ");                     ///> compile mode prompt
         else {
+            io.pstr("< ");
             io.ss_dump(ss, base);
-            io.pstr("ok ");                             ///> * OK prompt (interpreter)
+            io.pstr(">ok ");                            ///> * OK prompt (interpreter)
         }
     }
     public boolean outer() {
@@ -470,7 +471,7 @@ public class VM {
         });
         CODE(".s",    c -> io.ss_dump(ss, base)                    );
         CODE("words", c -> io.words(dict)                          );
-        CODE("see",   c -> io.see(tick(), 0)                       );
+        CODE("see",   c -> io.see(tick(), base, 0)                 );
         CODE("clock", c -> ss.push((int)System.currentTimeMillis()));
         CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
         CODE("depth", c -> ss.push(ss.size())                      );

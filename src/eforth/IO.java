@@ -102,7 +102,7 @@ public class IO {
         }
         cr();
     }
-    void see(Code c, int dp) {
+    void see(Code c, int base, int dp) {
         if (c==null) return;
         Consumer<String> tab = s->{
             int i = dp;
@@ -110,15 +110,15 @@ public class IO {
             while (i-->0) { pstr("  "); } pstr(s);
         };
         tab.accept((dp == 0 ? ": " : "")+c.name+" ");
-        c.pf.forEach(w -> see(w, dp+1));
+        c.pf.forEach(w -> see(w, base, dp+1));
         if (c.p1.size() > 0) {
-            tab.accept("( 1-- )");  c.p1.forEach(w -> see(w, dp+1));
+            tab.accept("( 1-- )");  c.p1.forEach(w -> see(w, base, dp+1));
         }
         if (c.p2.size() > 0) {
-            tab.accept("( 2-- )");  c.p2.forEach(w -> see(w, dp+1));
+            tab.accept("( 2-- )");  c.p2.forEach(w -> see(w, base, dp+1));
         }
         if (c.qf.size() > 0)  {
-            pstr(" \\ ="); c.qf.forEach(i -> pstr(i.toString()+" "));
+            pstr(" \\ ="); c.qf.forEach(i -> pstr(itoa(i, base)+" "));
         }
         if (c.str != null)  pstr(" \\ =\""+c.str+"\" ");
         if (dp == 0) pstr("\n; ");

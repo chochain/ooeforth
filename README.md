@@ -45,7 +45,7 @@ The core of current implementation of eForth is the dictionary composed of an ar
     <pre>
     + name  - String, holds primitive word's name, i.e. NFA in classic FORTH,
     + token - Integer, keeps index to dictionary (for reverse lookup)
-    + xt    - Consumer<Code>, lambda as primitive word function i.e. XT in classic FORTH
+    + xt    - Consumer<*Code*>, lambda as primitive word function i.e. XT in classic FORTH
     + pf, p1, p2 - parameter arrays of Code objects for compound words, i.e. PFA in classic FORTH
     + qf    - Integer Array, holds the literal value
     + str   - String, holds string literal

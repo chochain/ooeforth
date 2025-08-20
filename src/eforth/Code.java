@@ -48,7 +48,7 @@ public class Code {
         if (xt != null) { xt.accept(this); return; }
         for (var w : pf) {
             try   { w.nest(); }
-            catch (ArithmeticException e) {}
+            catch (ArithmeticException e) { break; } ///* capture UNNEST
         }
     }
     void nest(FV<Code> pf) {

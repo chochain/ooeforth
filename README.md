@@ -177,3 +177,11 @@ Well, there's more. What if Forth words can be compiled directly into Java Bytec
     + use var(0) for base
     + add "macro" methods (i.g. spaces, tgt, bool, alu) to reduce verbosity
     + move GUI to main
+### 202508 Refactor
+    + modulization
+    + Code class to handle branching
+    + add primitive as Consumer<*Code*>
+    + use short methods as macros
+    + add do..loop, rnd, ok, upgrade see
+    + add include, included
+    

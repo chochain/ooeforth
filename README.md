@@ -14,15 +14,16 @@ The project has been in frozen state since his passing late May 2022 and I've wo
 
 1. ooeForth is an eForth developed in 100% Java.
 2. The purpose is for education and to help Java developers quickly grasp the core concepts of Forth.
-    + It has only around 110 built-in primitives. Much less than most of Forths 
-    + No support for Vocabulary, Multi-tasking.
-    + Minimal meta-programming support. Only CREATE..DOES>, and POSTPONE.
-3. It utilize Java contains for its core components.
+    + It has a small built-in word set, around 110. Much less than most of Forths 
+    + No VOCABULARY, or Multitasking. These are the real power of Forth but maybe later.
+    + Minimal meta-programming stuffs except CREATE..DOES>, and POSTPONE.
+    + Not Object-Oriented. But can be extended with as all Forths do.
+3. It utilize Java containers for its core components.
     + Dictionary        - ArrayList
     + Data Stack        - Stack
     + Return Stack      - Stack
     + Parameter Fields  - ArrayList
-4. Its default CELL is 32-bit integer but trivial changing to long, float, or double.
+4. Its CELL is 32-bit integer but trivial changing to long, float, or double.
 
 ## Code Directories
 ooeForth is refactored from Dr. Ting's original one-file app into the following modules.
@@ -50,6 +51,7 @@ The core of current implementation of eForth is the dictionary composed of an ar
     + str   - String, holds string literal
     </pre>
 
+
 3. <b>Dictionary</b> - an array of *Code* objects
     <pre>
     + build-it words - constructed by dict_init() in VM module, with CODE/IMMD macros at start up assigning the names and these lambda i.e. Consumer<Code> in Code.xt
@@ -65,7 +67,8 @@ The core of current implementation of eForth is the dictionary composed of an ar
         dict[-1].pf  = [ Code, Code, ... ]     It can be further compacted into
                                                token (i.e. dict index) threading if desired
     </pre>
-    
+
+
 4. <b>Inner Interpreter</b> - *Code.nest()*
     ```Java
     void nest() {                                     
@@ -79,6 +82,7 @@ The core of current implementation of eForth is the dictionary composed of an ar
     
     i.e. either we call a built-in word's lambda function or walk the Code.pf array recursively like a depth-first tree search.
     
+
 5. <b>Outer Interpreter</b> - *parse()*
     ```Java
     Code w = dict.find(idiom, compile);             ///< search dictionary

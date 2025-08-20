@@ -44,5 +44,5 @@ variable si                             \ array index (default to 0)
     500 ms
   loop ;
 st_setup
-\ st_lst
-\ st_exe
+st_lst
+st_exe

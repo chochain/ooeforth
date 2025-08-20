@@ -126,7 +126,7 @@ I'm not a GUI person and have very limited experience with IDEs. Most of my work
     > type> 1 2 +⏎               \ see Forth in action
     > type> bye⏎  or Ctrl-C      \ to exit eForth
 
-Hopefully, you screen looks like this. <img src="https://github.com/chochain/ooeforth/tree/master/docs/ooeforth_init_1.png" width=400>
+Hopefully, you screen looks like this. <img src="https://github.com/chochain/ooeforth/blob/master/docs/ooeforth_init_1.png" width=400>
     
 ### Dr. Ting's original one-file eForth
 

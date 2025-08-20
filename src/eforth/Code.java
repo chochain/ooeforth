@@ -93,15 +93,15 @@ public class Code {
     }
     void loop(Stack<Integer> rs) {                 ///> do..loop
         try {
-            int i;
+            int i, m = rs.pop();
             while (true) {
-                i = rs.pop();
-                if (++i > rs.peek()) break;
                 nest(pf);
-                rs.push(i);
+                i = rs.pop();
+                rs.push(++i);
+                if (i >= m) break;
             }
         }
         catch (Exception e) { /* leave */ }        /// handle LEAVE
-        finally { rs.pop(); rs.pop(); }
+        finally { rs.pop(); }
     }
 }

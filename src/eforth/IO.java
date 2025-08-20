@@ -38,7 +38,7 @@ public class IO {
         String tib = null;
         tok = in.tail().hasNextLine()                       ///< create tokenizer
             ? new Scanner(tib=in.tail().nextLine()) : null;
-        if (tib!=null && load_depth() > 0) pstr(tib+"\n");  ///< echo
+        if (tib!=null && load_depth() > 0) debug(tib+"\n"); ///< echo if needed
         return tok != null;
     }
     public void pstr(String s)   { out.print(s); out.flush(); }
@@ -123,9 +123,8 @@ public class IO {
         if (c.str != null)  pstr(" \\ =\""+c.str+"\" ");
         if (dp == 0) pstr("\n; ");
     }
-    int  load_depth() { return in.size() - 1; }             /// * depth or recursive loading
-    void load(VM vm, String fn) {
-        debug("loading "+fn+"...\n");
+    int load_depth() { return in.size() - 1; }              /// * depth or recursive loading
+    int load(VM vm, String fn) {
         Scanner tok0 = tok;                                 /// * backup tokenizer
         int i = 0;
         try (Scanner sc = new Scanner(new File(fn))) {      ///< auto close scanner
@@ -140,6 +139,6 @@ public class IO {
             in.drop();                                      /// * restore scanner
         }
         tok = tok0;                                         /// * restore tokenizer
-        debug(fn + " loaded "+i+" lines"); cr();
+        return i;
     }
 }

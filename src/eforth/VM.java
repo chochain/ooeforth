@@ -142,11 +142,11 @@ public class VM {
     Consumer<Code> _dovar  = c -> ss.push(c.token);
     Consumer<Code> _dodoes = c -> {
         var hit = false;
-        for(var w : dict.get(c.token).pf) {
-            if (hit) dict.compile(w);
-            else if (w.name.equals("does>")) hit = true;
+        for(var w : dict.get(c.token).pf) {    /// * scan through defining word
+            if (w==c) hit = true;              /// does> ...
+            else if (hit) dict.compile(w);     /// capture words
         }
-        c.unnest();
+        c.unnest();                            /// exit nest
     };
     void ADD_W(Code w)                    { dict.compile(w);                 }
     void CODE(String n, Consumer<Code> f) { dict.add(new Code(n, f, false)); }
@@ -421,7 +421,7 @@ public class VM {
         IMMD("does>", c -> {                                       /// n --
             Code w = new Code(_dodoes, "does>");
             ADD_W(w);
-            w.token = IDX();
+            w.token = dict.tail().token;                           /// * point to new word
         });
         CODE("to",   c -> {                                        /// n -- , compile only
             Code w = tick(); if (w==null) return;

@@ -124,14 +124,14 @@ public class IO {
         if (dp == 0) pstr("\n; ");
     }
     int load_depth() { return in.size() - 1; }              /// * depth or recursive loading
-    int load(VM vm, String fn) {
+    int load(String fn, BooleanSupplier outer) {
         Scanner tok0 = tok;                                 /// * backup tokenizer
         int i = 0;
         try (Scanner sc = new Scanner(new File(fn))) {      ///< auto close scanner
             in.add(sc);                                     /// * keep input scanner
             while (readline()) {                            /// * load from file now
                 i++;
-                if (!vm.outer()) break;
+                if (!outer.getAsBoolean()) break;           /// * pass to outer interpreter
             }
         }
         catch (IOException e) { err(e); }                   /// * just in case 

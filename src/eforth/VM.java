@@ -476,9 +476,12 @@ public class VM {
         CODE("rnd",   c -> ALU(a -> rnd.nextInt(a))                );
         CODE("depth", c -> ss.push(ss.size())                      );
         CODE("r",     c -> ss.push(rs.size())                      );
-        IMMD("include", c -> io.load(this, io.next_token())        );  /// include an OS file
-        CODE("included",c -> {                                         /// include a file (programmable)
-                ss.pop(); io.load(this, STR(ss.pop()));
+        IMMD("include",                                            /// include an OS file
+             c -> io.load(io.next_token(), ()->{ return outer(); })
+        );
+        CODE("included",c -> {                                     /// include a file (programmable)
+             ss.pop();
+             io.load(STR(ss.pop()), ()->{ return outer(); });
         });
         CODE("ok",    c -> io.mstat()                              );
         CODE("ms",    c -> {                                       /// n -- delay n ms

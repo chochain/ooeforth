@@ -1,6 +1,6 @@
 # ooeforth
 ## eForth in Java
-Dr. Ting has been an influential figure in Forth community. He was the key person who brought Bill Munich's eForth into a wide range of platforms. [see here](https://www.forth.org/OffeteStore/OffeteStore.html)
+Dr. Ting has been an influential figure in Forth community. He was the key person who brought Bill Muench's eForth into a wide range of platforms. [see here](https://www.forth.org/OffeteStore/OffeteStore.html)
 
 When I demonstrated that high-level languages such as C++, Java, even Javascript can also construct Forth dictionary without meta-compilation as were done in classic Forths, he got very excited. He stated that Forth can finally be built without bootstrapping from lower-level Forth scripts and termed the paradigm "Forth without Forth".
 

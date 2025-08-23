@@ -20,7 +20,7 @@ public class Code {
     FV<Code>       p1 = new FV<>();        ///< else..p1..then
     FV<Code>       p2 = new FV<>();        ///< aft..next
     FV<Integer>    qf = new FV<>();        ///< variable storage
-    String         str;                    ///< string storage
+    String         str= null;              ///< string storage
     ///
     ///> constructors
     ///

@@ -20,6 +20,16 @@ final public class Dict extends FV<Code> {
         dict.subList(t, dict.size()).clear();           ///> forget words
     }
     ///
+    /// dictionary indexing i_w = |   pf index   |  word index  |
+    /// and proxies               |<-- 16-bit -->|<-- 16-bit -->|
+    ///
+    int idx() {                                                    ///< calculate String index
+        return ((dict.tail().pf.size() - 1) << 16) | dict.tail().token;
+    }
+    int    getv(int i_w) { return dict.get(i_w & 0x7fff).get_var(i_w >> 16);    }
+    void   setv(int i_w, int n) { dict.get(i_w & 0x7fff).set_var(i_w >> 16, n); }
+    String str(int i_w)  { return dict.get(i_w & 0x7fff).pf.get(i_w >> 16).str; }
+    ///
     ///> find - Forth dictionary search 
     ///    @param  str  input string to be search against dictionary words
     ///    @return      Code found; null - if not found

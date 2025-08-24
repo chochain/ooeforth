@@ -19,6 +19,7 @@ public class IO {
     Scanner     tok  = null;                           ///< tokenizer
     PrintWriter out  = null;                           ///< streaming output
     String      pad;                                   ///< tmp storage
+    Random      rnd  = new Random();                   ///< random number generator
 
     public IO(String n, InputStream i, PrintStream o) {
         name = n;
@@ -64,6 +65,7 @@ public class IO {
     void spaces(int n) {
         for (int i=0; i < Math.max(1,n); i++) pstr(" ");
     }
+    int  rnd(int n) { return rnd.nextInt(n); }              ///> ranged random [0, n)
     void dot(OP op, int n, int r, int base) {
         switch (op) {
         case CR:   pstr("\n");                     break;

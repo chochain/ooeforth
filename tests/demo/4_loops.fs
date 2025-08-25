@@ -1,4 +1,4 @@
-.( example 4. repeated patterns )
+cr .( example 4. repeated patterns )
 
 variable t4
 variable width                  ( number of asterisks to print )
@@ -30,12 +30,12 @@ variable width                  ( number of asterisks to print )
         next
         ;
 
-.( try the following instructions: )
-.( 3 10 rectangle) cr
+cr .( try the following instructions: )
+cr .( 3 10 rectangle)
 3 10 rectangle
 
-.( 5 18 parallelogram) cr
+cr .( 5 18 parallelogram)
 5 18 parallelogram
 
-.( 12 triangle) cr
+cr .( 12 triangle)
 12 triangle  

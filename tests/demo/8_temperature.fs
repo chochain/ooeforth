@@ -1,4 +1,4 @@
-.( example 8. temperature conversion )
+cr .( example 8. temperature conversion ) cr
 
 variable t8
 : f>c ( nfarenheit -- ncelcius )

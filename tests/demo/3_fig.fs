@@ -1,4 +1,4 @@
-.( example 3. fig, forth interest group )
+cr .( example 3. fig, forth interest group )
 
 variable t2
 : bar   cr ." *****" ;

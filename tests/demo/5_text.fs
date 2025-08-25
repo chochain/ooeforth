@@ -1,4 +1,4 @@
-.( example 5. text display - the theory that jack built )
+cr .( example 5. text display - the theory that jack built )
 
 variable t5
 decimal

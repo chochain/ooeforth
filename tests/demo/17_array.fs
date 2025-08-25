@@ -1,4 +1,4 @@
-.( lesson 17 - array access )
+cr .( lesson 17 - array access ) cr
 
 .( create arr 5 cells allot ) create arr 5 cells allot cr
 : st th ;
@@ -18,5 +18,5 @@
 .( arr 1 st @ => ) arr 1 st @ . cr
 .( arr 2 nd @ => ) arr 2 nd @ . cr
 .( arr 3 rd @ => ) arr 3 rd @ . cr
-.( arr 4 th @ => ) arr 4 th @ . cr cr
+.( arr 4 th @ => ) arr 4 th @ . cr
 

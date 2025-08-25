@@ -1,4 +1,4 @@
-.( example 2. the big f )
+cr .( example 2. the big f )
 
 variable t2
 : bar   cr ." *****" ;

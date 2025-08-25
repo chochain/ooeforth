@@ -1,4 +1,4 @@
-.( lesson 18 - create..does> )
+cr .( lesson 18 - create..does> ) cr
 
 .( : const create , ." created " does> @ ." fetched " ;) cr
 : const
@@ -23,4 +23,4 @@
 : 3. ( x y z -- ) rot . swap . . ;
 .( 111 222 333 vec3 xyz ) cr 111 222 333 vec3 xyz
 .( see xyz => ) cr see xyz
-.( xyz => ) xyz 3. cr cr
+.( xyz => ) xyz 3. cr 

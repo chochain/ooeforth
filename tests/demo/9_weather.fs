@@ -1,4 +1,4 @@
-.( example 9. weather reporting. )
+cr .( example 9. weather reporting. ) cr
 
 variable t9
 : weather ( nfarenheit -- )
@@ -11,7 +11,7 @@ variable t9
         then
         ;
 
-.( you can type the following instructions: )
-.( 90 weather =>) 90 weather cr
-.( 70 weather =>) 70 weather cr
-.( 32 weather =>) 32 weather cr cr
+.( you can type the following instructions: ) cr
+.( 90 weather => ) 90 weather cr
+.( 70 weather => ) 70 weather cr
+.( 32 weather => ) 32 weather cr

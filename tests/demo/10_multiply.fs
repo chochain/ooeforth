@@ -1,4 +1,4 @@
-.( example 10.  print the multiplication table )
+cr .( example 10.  print the multiplication table )
 
 variable t10
 : onerow ( nrow -- )
@@ -21,5 +21,5 @@ variable t10
         next drop cr
         ;
         
-.( type 'multiply' to print the multiplication table =>) cr
+cr .( type 'multiply' to print the multiplication table =>)
 multiply

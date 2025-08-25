@@ -1,4 +1,4 @@
-.( example 16. random numbers and number guessing game)
+cr .( example 16. random numbers and number guessing game) cr
 
 variable t16
 variable seed                            ( seed )
@@ -15,10 +15,10 @@ here seed !                              ( initialize seed )
         65536 /                         ( discard lower part )
         ;                               ( in fact divide by 65536 )
 
-cr .( to test the routine, type )
-cr .( 100 choose . => ) 100 choose .
-cr .( 100 choose . => ) 100 choose .
-cr .( 100 choose . => ) 100 choose . cr
+.( to test the routine, type ) cr
+.( 100 choose . => ) 100 choose . cr
+.( 100 choose . => ) 100 choose . cr
+.( 100 choose . => ) 100 choose . cr
 
 variable myNumber
 variable yourNumber
@@ -58,7 +58,7 @@ variable yourNumber
   3 for
     32000 choose dup . ." guess " cr
     guess
-  next ;
+  next cr ." done!" cr ;
 
 .( type 'greet' for a number guessing game ) cr
 greet cr

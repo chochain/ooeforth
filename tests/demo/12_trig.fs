@@ -1,4 +1,4 @@
-.( example 12. sines and cosines )
+cr .( example 12. sines and cosines ) cr
 
 variable t12
 31416 constant pi

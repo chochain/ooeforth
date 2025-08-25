@@ -1,4 +1,4 @@
-.( example 6. help system)
+cr .( example 6. help system)
 
 variable t6
 decimal

@@ -1,4 +1,4 @@
-.( example 14. radix for number conversions )
+cr .( example 14. radix for number conversions ) cr
 variable t14
 
 decimal
@@ -9,5 +9,5 @@ decimal
 .( decimal 12345 hex .           => ) decimal 12345 hex . cr
 .( hex abcd decimal .            => ) hex abcd decimal . cr
 .( decimal 100 binary .          => ) decimal 100 binary . cr
-.( binary 101010101010 decimal . => ) binary 101010101010 decimal . cr cr
+.( binary 101010101010 decimal . => ) binary 101010101010 decimal . cr
 

@@ -1,4 +1,4 @@
-.( example 11.  calendars - print weekly calendars for any month in any year. )
+cr .( example 11.  calendars - print weekly calendars for any month in any year. ) cr
 decimal
 
 variable t11
@@ -75,5 +75,5 @@ variable leap           ( 1 for a leap year, 0 otherwise. )
 : december      year 12 month ;
 
 .( to print the calender of may 2021, type: ) cr
-.( 2024 may =>) cr
+.( 2024 may =>) 
 2024 may

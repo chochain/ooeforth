@@ -46,3 +46,4 @@ variable si                             \ array index (default to 0)
 st_setup
 st_lst
 st_exe
+cr stars cr

@@ -1,4 +1,4 @@
-.( example 7. money exchange )
+cr .( example 7. money exchange )
 
 variable t7
 decimal
@@ -15,7 +15,7 @@ decimal
 : ounce   ( n -- n, a word to improve syntax )  ;
 : dollars ( n -- )      . ;
 
-.( with this set of money exchange words, we can do some tests: ) cr
+cr .( with this set of money exchange words, we can do some tests: ) cr
 .( 5   ounce gold => )   5 ounce gold . cr
 .( 10  ounce silver => ) 10 ounce silver . cr
 .( 100 $nt => )          100 $nt . cr

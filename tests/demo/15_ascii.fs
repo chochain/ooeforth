@@ -20,9 +20,9 @@ variable t15
         15 for  dup line
                 1 +
         next
-        drop ;
+        drop cr ;
 
-cr .( type 'table' to display ASCII char table )
-table cr
+cr .( type 'table' to display ASCII char table ) cr
+table
 
 
